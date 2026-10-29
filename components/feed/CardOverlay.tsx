@@ -11,7 +11,9 @@ import Slideshow from "./Slideshow";
 
 // What the card says (§5.1.1, layout after spec/UI_mockups): Sample badge (§6.1.1), owner chip
 // (§2.1.2), status, title, street, description, captions, the slideshow for photo posts and the
-// "On map" pin (§5.2.1), plus who fixed it on fixed cards (§4.3.2). A fragment, so it creates no
+// "On map" pin (§5.2.1), plus who fixed it on fixed cards (§4.3.2). Captions sit in a band at the
+// top, below the safe area and the slideshow's dots (top-[66px]), and clear of its counter (right-3.5)
+// via the right-20 inset, so the middle of the frame stays visible. A fragment, so it creates no
 // stacking context: the slideshow sits in the slot-media layer (z-[2]) and everything else in the
 // slot-UI layer (z-[4]). Text layers ignore pointer events, so a swipe over them still moves the
 // slideshow.
@@ -33,8 +35,11 @@ export default function CardOverlay({ report, active, near, video }: FeedSlotPro
       {photos.length > 0 && <Slideshow photos={photos} near={near} />}
 
       {caption && (
-        <div className="pointer-events-none absolute left-5 right-20 top-[45%] z-[4] flex justify-center">
-          <p data-testid="caption" className="rounded-lg bg-black/60 px-2.5 py-1.5 text-center text-base font-bold leading-snug text-white">
+        <div
+          data-testid="caption-band"
+          className="pointer-events-none absolute left-5 right-20 top-[calc(env(safe-area-inset-top,0px)+78px)] z-[4] flex justify-center"
+        >
+          <p data-testid="caption" className="line-clamp-3 rounded-lg bg-black/60 px-2.5 py-1.5 text-center text-base font-bold leading-snug text-white">
             {caption}
           </p>
         </div>
