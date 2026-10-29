@@ -229,9 +229,8 @@ The app runs as one city at a time: `ACTIVE_CITY` in `server/lib/city.ts`. **Cal
 
 ### 1. Seed (the night before)
 
-1. Seed at least one fixer per org that will close a fix, e.g. SF Public Works. Their org is what the card shows ("Fixed by SF Public Works"):
-   `npx convex run --prod fixers:seed '{"fixers":[{"name":"Demo crew","org":"SF Public Works","passcode":"…"}]}'`
-2. On the **demo phone**, open `/admin/seed` on prod and sign in with the Convex `ADMIN_PASSCODE`. It's checked server-side on every call and never stored in the page.
+1. On the **demo phone**, open `/admin/seed` on prod and sign in with `ADMIN_PASSCODE`. It's checked on the server and swapped for a 30-minute session that the page keeps in memory only (sign in again when it expires).
+2. Seed at least one fixer per org that will close a fix, e.g. SF Public Works, in the **Fixers** form at the bottom of the page. One per line as `name | org | passcode`, e.g. `Demo crew | SF Public Works | …`. Their org is what the card shows ("Fixed by SF Public Works"). Saving again updates a fixer by passcode, so it's safe to repeat.
 3. Add one row per California clip (or set of photos), about 8 in all.
    - iPhone `.MOV` clips can be chosen as they are. A clip that isn't MP4/WebM, is over 25 MB or runs over 20.5 s starts converting the moment you pick it (1280 px or less, cut at 20 s, §4.1.1), with "Converting… %" next to the file; Seed waits for it. It runs in real time, about 20 s per clip. Converting at the pick keeps the sound on iPhone, so seeding on the demo phone works. Fix clips convert without sound (§4.3.1). If a clip fails, convert it by hand: `ffmpeg -i IMG_1234.MOV -c:v libx264 -c:a aac clip.mp4`.
    - Keep the stage *after* clip at 20 s or less, MP4, under 25 MB, so it uploads without a live conversion.
@@ -244,9 +243,9 @@ The app runs as one city at a time: `ACTIVE_CITY` in `server/lib/city.ts`. **Cal
    - Screening is staggered 10 s apart within a batch, so 8 samples take about 1.5 minutes. Wait for a batch to finish before seeding another, or the two overlap and can hit Anthropic's rate limit.
    - The table at the bottom shows each sample go from `pending` to `open`, with Claude's title and the SF agency.
    - A fix clip is checked by the real `verifyFix` once its report is open, and then shows `verified`.
-5. If a sample ends up `held`:
-   - `npx convex run --prod screeningDb:rescreen '{"reportId": "…"}'` screens it again. Use this for "screening failed", or one stuck on `pending`.
-   - `npx convex run --prod screeningDb:release '{"reportId": "…"}'` publishes a held report that has a title and category. Add `"force": true` if the verdict was retake, emergency or reject.
+5. If a sample ends up `held`, use the **Rescreen** and **Release** buttons on its row (or the **Report tools** form for any report ID):
+   - **Rescreen** screens it again. Use this for "screening failed", or one stuck on `pending`.
+   - **Release** publishes a held report that has a title and category. If the verdict was retake, emergency or reject it asks you to confirm (the form has a **force** box).
    - A sample that was held when its fix clip was due drops the clip (the table's Fix column stays empty). Release it, then seed the fix again as a new sample.
 6. Check on the phone:
    - The feed shows the samples with the Sample badge.
@@ -268,19 +267,19 @@ Open the app with `?demo=sf`. The banner reads "Demo mode: location simulated", 
 
 ### Fallbacks
 
-- A live post stuck on "Checking…": `screeningDb:rescreen` on it.
-- A live post held by mistake: `screeningDb:release` (with `"force": true` if needed).
+- A live post stuck on "Checking…": **Rescreen** it from the Report tools form on `/admin/seed`.
+- A live post held by mistake: **Release** it there (with **force** if needed).
 - The before/after check comes back "not fixed" or "retake": upload the after clip again. If it still fails, show the pre-fixed fallback sample on the Me page instead.
 
 ## Test video transcription
 
-Set `GEMINI_API_KEY` and `ADMIN_PASSCODE` on the Convex deployment, then run `npm run dev` and open
-`/admin/video-intake`. Record a clip in the browser or choose an MP4 or WebM
-video up to 25 MB. The page uploads the video to Convex storage, records it in
-the `videoIntake` table, sends it to Gemini, and shows the transcript and
-timestamped segments. Sign in with the Convex `ADMIN_PASSCODE`; the session
+Set `GEMINI_API_KEY` and `ADMIN_PASSCODE`, then run the app and the worker (`npm run dev` and
+`npm run worker`) and open `/admin/video-intake`. Record a clip in the browser or choose an MP4 or WebM
+video up to 25 MB. The page uploads the video to MinIO and records it in
+the `video_intake` table, and the worker's `transcribeVideo` job sends it to Gemini; the page shows the
+transcript and timestamped segments when it finishes. Sign in with `ADMIN_PASSCODE`; the session
 expires after 30 minutes. Intake records and their uploaded files are deleted
-after seven days.
+by the nightly purge once they are over seven days old.
 
 This is a protected test page, not the production report-screening flow.
 

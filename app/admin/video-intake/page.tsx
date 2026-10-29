@@ -1,63 +1,50 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import VideoRecorder, { type RecordedClip } from "@/components/capture/VideoRecorder";
-import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
+import { uploadAdminMedia } from "@/lib/adminUpload";
+import { mutate, query } from "@/lib/data/api";
+import { LIVE_STATUS_MS, useLive } from "@/lib/data/useLive";
 import { normalizeMimeType } from "@/lib/media/mimeType";
+import type { VideoIntake } from "@/server/db/schema";
+import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
+import { errorMessage, useAdminSession } from "../useAdminSession";
 
 type InputMode = "record" | "file";
 
 export default function VideoIntakePage() {
   const [inputMode, setInputMode] = useState<InputMode>("record");
   const [passcode, setPasscode] = useState("");
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
-  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
+  const session = useAdminSession();
   const [file, setFile] = useState<File | null>(null);
-  const [recordId, setRecordId] = useState<Id<"videoIntake"> | null>(null);
+  const [recordId, setRecordId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
   const [recorderSession, setRecorderSession] = useState(0);
-  const login = useAction(api.videoIntakeAuth.login);
-  const generateUploadUrl = useMutation(api.videoIntake.generateUploadUrl);
-  const saveUpload = useMutation(api.videoIntake.saveUpload);
-  const transcribeVideo = useAction(api.videoIntake.transcribeVideo);
-  const entry = useQuery(
-    api.videoIntake.get,
-    recordId && sessionToken ? { id: recordId, sessionToken } : "skip",
+  // The worker transcribes after the upload, so poll the entry until it's complete or failed.
+  const entry = useLive<VideoIntake | null>(
+    recordId && session.signedIn ? `intake:${recordId}` : null,
+    (signal) => query("/api/admin/video-intake", { id: recordId }, { signal }),
+    { intervalMs: LIVE_STATUS_MS },
   );
-
-  useEffect(() => {
-    if (sessionExpiresAt === null) return;
-    const timer = window.setTimeout(() => {
-      setSessionToken(null);
-      setSessionExpiresAt(null);
-      setRecordId(null);
-      setError("Admin session expired. Sign in again.");
-    }, Math.max(0, sessionExpiresAt - Date.now()));
-    return () => window.clearTimeout(timer);
-  }, [sessionExpiresAt]);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setWorking(true);
     setError(null);
     try {
-      const session = await login({ passcode });
-      setSessionToken(session.token);
-      setSessionExpiresAt(session.expiresAt);
+      await session.signIn(passcode);
       setPasscode("");
+      setRecordId(null); // an entry from before the session expired isn't this sign-in's
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setWorking(false);
     }
   }
 
   async function uploadAndTranscribe(blob: Blob, fileName: string, rawContentType: string) {
-    if (!sessionToken) {
+    if (!session.signedIn) {
       setError("Sign in to use video intake.");
       return;
     }
@@ -74,28 +61,12 @@ export default function VideoIntakePage() {
         throw new Error("Choose a video larger than 0 bytes and no larger than 25 MB.");
       }
 
-      const uploadUrl = await generateUploadUrl({ sessionToken });
-      const uploadResponse = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": contentType },
-        body: blob,
-      });
-      if (!uploadResponse.ok) {
-        throw new Error(`Convex upload failed (${uploadResponse.status}): ${await uploadResponse.text()}`);
-      }
-
-      const { storageId } = (await uploadResponse.json()) as { storageId: Id<"_storage"> };
-      const id = await saveUpload({
-        storageId,
-        sessionToken,
-        fileName,
-        contentType,
-        fileSize: blob.size,
-      });
-      setRecordId(id);
-      await transcribeVideo({ id, sessionToken });
+      const key = await uploadAdminMedia(blob.type === contentType ? blob : blob.slice(0, blob.size, contentType));
+      // Saving queues the transcription; the entry below shows it finish.
+      setRecordId(await mutate<string>("/api/admin/video-intake", { key, fileName, contentType, fileSize: blob.size }));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      session.handleError(cause);
+      setError(errorMessage(cause));
     } finally {
       setWorking(false);
     }
@@ -125,7 +96,7 @@ export default function VideoIntakePage() {
     setRecordId(null);
   }
 
-  if (!sessionToken) {
+  if (!session.signedIn) {
     return (
       <main className="mx-auto flex max-w-xl flex-col gap-6 p-6">
         <header>
@@ -153,9 +124,9 @@ export default function VideoIntakePage() {
             {working ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        {error && (
+        {(error ?? session.notice) && (
           <p role="alert" className="rounded-lg border border-[#F5C2C0] bg-[#FDECEC] p-4 text-sm text-[#8A1C1C]">
-            {error}
+            {error ?? session.notice}
           </p>
         )}
       </main>
@@ -167,13 +138,12 @@ export default function VideoIntakePage() {
       <header>
         <h1 className="text-2xl font-extrabold">Video intake test</h1>
         <p className="mt-2 text-sm text-[#4A5A6E]">
-          Record a clip or choose an MP4/WebM video up to 25 MB. Convex stores it, then Gemini transcribes it.
+          Record a clip or choose an MP4/WebM video up to 25 MB. MinIO stores it, then Gemini transcribes it.
         </p>
         <button
           type="button"
           onClick={() => {
-            setSessionToken(null);
-            setSessionExpiresAt(null);
+            session.signOut();
             setRecordId(null);
             setFile(null);
           }}
@@ -243,9 +213,9 @@ export default function VideoIntakePage() {
 
       {recordId && (
         <section aria-live="polite" className="flex flex-col gap-3 rounded-xl border border-[#D8DEE6] bg-white p-5">
-          <h2 className="font-bold">Convex intake result</h2>
+          <h2 className="font-bold">Intake result</h2>
           <p className="text-sm">Status: {entry?.status ?? "saving"}</p>
-          {entry?.transcript !== undefined && <p className="whitespace-pre-wrap">{entry.transcript || "(No speech detected)"}</p>}
+          {entry?.transcript != null && <p className="whitespace-pre-wrap">{entry.transcript || "(No speech detected)"}</p>}
           {entry?.segments && entry.segments.length > 0 && (
             <ul className="flex flex-col gap-2 text-sm text-[#4A5A6E]">
               {entry.segments.map((segment, index) => (

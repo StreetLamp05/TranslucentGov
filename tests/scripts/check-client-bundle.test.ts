@@ -61,6 +61,37 @@ test("fails on a key value in prerendered HTML", () => {
   expect(out).toContain("LEAK   ADMIN_PASSCODE (value found");
 });
 
+test("fails on a key value in a prerendered RSC payload", () => {
+  plant(".next/server/app/admin/seed.segments/_tree.segment.rsc", "1:hunter22");
+
+  const { exit, out } = check();
+
+  expect(exit).toBe(1);
+  expect(out).toContain("LEAK   ADMIN_PASSCODE (value found");
+});
+
+test("fails on a key name in a source map under static", () => {
+  plant(".next/static/chunks/app.js.map", '{"sourcesContent":["process.env.ADMIN_PASSCODE"]}');
+
+  const { exit, out } = check();
+
+  expect(exit).toBe(1);
+  expect(out).toContain("LEAK   ADMIN_PASSCODE (name found");
+});
+
+test("allows server-only code to name a key or hold its value", () => {
+  // Route handlers and server chunks read the keys from the environment (e.g. the admin routes
+  // import isAdminPasscode); the browser never receives them.
+  plant(".next/server/chunks/ssr/admin.js", 'process.env.ADMIN_PASSCODE; process.env.GEMINI_API_KEY; "hunter22"');
+  plant(".next/server/app/api/admin/login/route.js", "process.env.ADMIN_PASSCODE");
+  plant(".next/server/app/admin/seed/page.js", "process.env.GOOGLE_GEOCODING_KEY");
+
+  const { exit, out } = check();
+
+  expect(exit).toBe(0);
+  expect(out).not.toContain("LEAK");
+});
+
 test("fails on a key name, even with no value to compare", () => {
   plant(".next/static/chunks/env.js", "process.env.GEMINI_API_KEY");
 

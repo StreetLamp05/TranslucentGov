@@ -1,20 +1,30 @@
 "use client";
 
-import { useConvex, useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useState, type FormEvent } from "react";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { mutate, query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
+import { uploadAdminMedia } from "@/lib/adminUpload";
 import { getResidentToken } from "@/lib/hooks/useResidentToken";
 import { framesFromFile } from "@/lib/media/frames";
 import { normalizeClip } from "@/lib/media/normalizeClip";
-import { normalizeMimeType } from "@/lib/media/mimeType";
 import { photoToJpeg } from "@/lib/media/photos";
+import { errorMessage, useAdminSession } from "../useAdminSession";
 import { PRESETS } from "./presets";
 
-// Hidden seeding route (§6.1.1), no tab. Each sample is uploaded here, then convex/seed.ts
-// runs it through the real screening (and the real fix check, if it has a fix clip). The
-// passcode lives in this page's state only; every seed call sends it to be checked server-side.
+// Hidden seeding route (§6.1.1), no tab. Each sample is uploaded to MinIO here, then
+// server/seed.ts runs it through the real screening (and the real fix check, if it has a fix
+// clip). Signing in swaps the admin passcode for a 30-minute session held in memory only.
+
+type Fixer = { id: string; name: string; org: string };
+type Sample = {
+  id: string;
+  status: string;
+  title: string | null;
+  agency: string | null;
+  verdict: string | null;
+  reason: string | null;
+  fix: { status: string; reason: string | null } | null;
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -70,24 +80,22 @@ function daysAgo(value: string, now: number, label: string): number | undefined 
 }
 
 export default function SeedPage() {
-  const convex = useConvex();
+  const session = useAdminSession();
   const [typed, setTyped] = useState("");
-  const [passcode, setPasscode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     try {
-      await convex.query(api.seed.fixers, { passcode: typed });
-      setPasscode(typed);
+      await session.signIn(typed);
       setTyped("");
-    } catch {
-      setError("Wrong admin passcode.");
+    } catch (cause) {
+      setError(errorMessage(cause));
     }
   }
 
-  if (passcode === null) {
+  if (!session.signedIn) {
     return (
       <main className="mx-auto max-w-md p-6">
         <h1 className="text-2xl font-extrabold">Seed samples</h1>
@@ -102,18 +110,18 @@ export default function SeedPage() {
           />
           <button className="rounded bg-black px-4 py-2 font-semibold text-white">Sign in</button>
         </form>
-        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+        {(error ?? session.notice) && <p className="mt-3 text-sm text-red-700">{error ?? session.notice}</p>}
       </main>
     );
   }
-  return <Seeder passcode={passcode} />;
+  return <Seeder onFail={session.handleError} />;
 }
 
-function Seeder({ passcode }: { passcode: string }) {
-  const fixers = useQuery(api.seed.fixers, { passcode });
-  const samples = useQuery(api.seed.samples, { passcode });
-  const generateUploadUrl = useMutation(api.seed.generateUploadUrl);
-  const seedSamples = useMutation(api.seed.seedSamples);
+function Seeder({ onFail }: { onFail: (cause: unknown) => void }) {
+  const fixers = useLive<Fixer[]>("admin:fixers", (signal) => query("/api/admin/fixers", {}, { signal }));
+  const samples = useLive<Sample[]>("admin:samples", (signal) => query("/api/admin/samples", {}, { signal }), {
+    intervalMs: 5_000,
+  });
   const [rows, setRows] = useState<Row[]>(() => [newRow(0)]);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,18 +129,6 @@ function Seeder({ passcode }: { passcode: string }) {
 
   const update = (key: number, patch: Partial<Row>) =>
     setRows((all) => all.map((row) => (row.key === key ? { ...row, ...patch } : row)));
-
-  async function upload(blob: Blob): Promise<Id<"_storage">> {
-    const url = await generateUploadUrl({ passcode });
-    const contentType = normalizeMimeType(blob.type);
-    const res = await fetch(url, {
-      method: "POST",
-      headers: contentType ? { "Content-Type": contentType } : undefined,
-      body: blob,
-    });
-    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-    return ((await res.json()) as { storageId: Id<"_storage"> }).storageId;
-  }
 
   // Starts converting an iPhone .mov, a clip over 25 MB or one over 20 s (§4.1.1) right away, in
   // real time, replacing whatever that slot was preparing before. Fix clips lose their sound.
@@ -159,7 +155,7 @@ function Seeder({ passcode }: { passcode: string }) {
   async function uploadClip(prepared: Prepared) {
     const clip = await prepared.clip;
     const frames = await framesFromFile(clip);
-    const [clipStorageId, frameStorageIds] = await Promise.all([upload(clip), Promise.all(frames.map(upload))]);
+    const [clipStorageId, frameStorageIds] = await Promise.all([uploadAdminMedia(clip), Promise.all(frames.map(uploadAdminMedia))]);
     return { clipStorageId, frameStorageIds };
   }
 
@@ -188,12 +184,12 @@ function Seeder({ passcode }: { passcode: string }) {
           ? { mediaType: "video" as const, ...(await uploadClip(row.prepared!)) }
           : {
               mediaType: "photos" as const,
-              frameStorageIds: await Promise.all(row.files.map(async (photo) => upload(await photoToJpeg(photo)))),
+              frameStorageIds: await Promise.all(row.files.map(async (photo) => uploadAdminMedia(await photoToJpeg(photo)))),
             };
         const fix = row.fixFile
           ? {
               ...(await uploadClip(row.fixPrepared!)),
-              by: row.fixBy === "resident" ? { kind: "resident" as const } : { kind: "fixer" as const, fixerId: row.fixBy as Id<"fixers"> },
+              by: row.fixBy === "resident" ? { kind: "resident" as const } : { kind: "fixer" as const, fixerId: row.fixBy },
               fixedAt,
             }
           : undefined;
@@ -209,12 +205,13 @@ function Seeder({ passcode }: { passcode: string }) {
         });
       }
       setProgress("Seeding…");
-      const ids = await seedSamples({ passcode, samples: batch });
+      const ids = await mutate<string[]>("/api/admin/samples", { samples: batch });
       setProgress(`Seeded ${ids.length}. Screening runs 10 s apart; watch the table below.`);
       setRows([newRow(0)]);
     } catch (cause) {
+      onFail(cause);
       setProgress(null);
-      setError(cause instanceof ConvexError && typeof cause.data === "string" ? cause.data : cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setWorking(false);
     }
@@ -319,7 +316,7 @@ function Seeder({ passcode }: { passcode: string }) {
             <select value={row.fixBy} onChange={(e) => update(row.key, { fixBy: e.target.value })} className="rounded border px-2 py-1">
               <option value="">Filmed by…</option>
               {fixers?.map((f) => (
-                <option key={f._id} value={f._id}>
+                <option key={f.id} value={f.id}>
                   {f.org} ({f.name})
                 </option>
               ))}
@@ -367,12 +364,13 @@ function Seeder({ passcode }: { passcode: string }) {
             <th>Status</th>
             <th>Title</th>
             <th>Fix</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {samples?.map((s) => (
-            <tr key={s._id} className="border-t align-top">
-              <td className="pr-2 font-mono">{s._id}</td>
+            <tr key={s.id} className="border-t align-top">
+              <td className="pr-2 font-mono">{s.id}</td>
               <td className="pr-2">
                 {s.status}
                 {s.status === "held" ? ` (${s.verdict ?? "failed"}: ${s.reason ?? ""})` : ""}
@@ -381,11 +379,163 @@ function Seeder({ passcode }: { passcode: string }) {
                 {s.title ?? "…"}
                 {s.agency ? ` · ${s.agency}` : ""}
               </td>
-              <td>{s.fix ? `${s.fix.status}${s.fix.reason ? `: ${s.fix.reason}` : ""}` : ""}</td>
+              <td className="pr-2">{s.fix ? `${s.fix.status}${s.fix.reason ? `: ${s.fix.reason}` : ""}` : ""}</td>
+              <td>
+                <OperatorButtons sample={s} onError={setError} onFail={onFail} />
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <ReportTools onFail={onFail} />
+      <FixersForm onFail={onFail} />
     </main>
+  );
+}
+
+// Rescreen / release (§4.2.1) for a sample that's held or stuck on pending.
+function OperatorButtons({
+  sample,
+  onError,
+  onFail,
+}: {
+  sample: Sample;
+  onError: (message: string | null) => void;
+  onFail: (cause: unknown) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (sample.status !== "held" && sample.status !== "pending") return null;
+
+  async function run(path: string, body: object) {
+    setBusy(true);
+    onError(null);
+    try {
+      await mutate(path, { reportId: sample.id, ...body });
+    } catch (cause) {
+      onFail(cause);
+      onError(errorMessage(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // A held verdict (retake, reject, emergency) needs the operator to confirm the release.
+  const forced = sample.status === "held" && !!sample.verdict && sample.verdict !== "pass" && sample.verdict !== "mute";
+  return (
+    <span className="flex gap-2">
+      <button type="button" disabled={busy} className="underline" onClick={() => run("/api/admin/rescreen", {})}>
+        Rescreen
+      </button>
+      {sample.status === "held" && (
+        <button
+          type="button"
+          disabled={busy}
+          className="underline"
+          onClick={() => {
+            if (!forced || window.confirm(`Held as ${sample.verdict}. Release it anyway?`)) void run("/api/admin/release", { force: forced });
+          }}
+        >
+          Release
+        </button>
+      )}
+    </span>
+  );
+}
+
+// Rescreen / release (§4.2.1) for any report by ID, such as a live post stuck on "Checking…".
+function ReportTools({ onFail }: { onFail: (cause: unknown) => void }) {
+  const [reportId, setReportId] = useState("");
+  const [force, setForce] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(action: "rescreen" | "release") {
+    setMessage(null);
+    setError(null);
+    try {
+      await mutate(`/api/admin/${action}`, { reportId: reportId.trim(), force });
+      setMessage(action === "rescreen" ? "Screening again." : "Released.");
+    } catch (cause) {
+      onFail(cause);
+      setError(errorMessage(cause));
+    }
+  }
+
+  return (
+    <section className="mt-8 grid gap-2">
+      <h2 className="text-lg font-bold">Report tools</h2>
+      <input
+        aria-label="Report ID"
+        placeholder="Report ID"
+        value={reportId}
+        onChange={(e) => setReportId(e.target.value)}
+        className="rounded border px-2 py-1 font-mono"
+        autoComplete="off"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" disabled={!reportId.trim()} className="rounded border px-4 py-2 disabled:opacity-50" onClick={() => run("rescreen")}>
+          Rescreen
+        </button>
+        <button type="button" disabled={!reportId.trim()} className="rounded border px-4 py-2 disabled:opacity-50" onClick={() => run("release")}>
+          Release
+        </button>
+        <label>
+          <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} /> force (retake, emergency or reject)
+        </label>
+      </div>
+      {message && <p>{message}</p>}
+      {error && <p className="text-red-700">{error}</p>}
+    </section>
+  );
+}
+
+// Fixers for the "Filmed by…" picker (§3.1.2), replacing `npx convex run fixers:seed`. One per
+// line as `name | org | passcode`; running it again updates a fixer by passcode.
+function FixersForm({ onFail }: { onFail: (cause: unknown) => void }) {
+  const [text, setText] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+    setError(null);
+    try {
+      const fixers = text
+        .split("\n")
+        .filter((line) => line.trim())
+        .map((line, i) => {
+          const [name, org, passcode, ...extra] = line.split("|").map((part) => part.trim());
+          if (!name || !org || !passcode || extra.length) throw new Error(`Line ${i + 1}: write it as name | org | passcode.`);
+          return { name, org, passcode };
+        });
+      const { inserted, updated } = await mutate<{ inserted: number; updated: number }>("/api/admin/fixers", { fixers });
+      setMessage(`Added ${inserted}, updated ${updated}.`);
+      setText("");
+    } catch (cause) {
+      onFail(cause);
+      setError(errorMessage(cause));
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="mt-8 grid gap-2">
+      <h2 className="text-lg font-bold">Fixers</h2>
+      <p className="text-gray-600">One per line: name | org | passcode. The org is what a fixed card shows (&ldquo;Fixed by SF Public Works&rdquo;).</p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        placeholder="Demo crew | SF Public Works | passcode"
+        className="rounded border px-2 py-1 font-mono"
+        autoComplete="off"
+      />
+      <button className="justify-self-start rounded bg-black px-4 py-2 font-semibold text-white disabled:opacity-50" disabled={!text.trim()}>
+        Save fixers
+      </button>
+      {message && <p>{message}</p>}
+      {error && <p className="text-red-700">{error}</p>}
+    </form>
   );
 }
