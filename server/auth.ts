@@ -1,9 +1,10 @@
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "./db";
 import { fixers, residents, videoIntakeAdminSessions, type Fixer } from "./db/schema";
 import {
   ADMIN_LOGIN_REQUIRED,
   ADMIN_SESSION_EXPIRED,
+  ADMIN_SESSION_MS,
   cleanToken,
   INVALID_FIXER_TOKEN,
   MISSING_DEVICE_TOKEN,
@@ -41,13 +42,19 @@ export async function requireFixer(token: string | null | undefined): Promise<Fi
   return fixer;
 }
 
-/** Throws unless `token` is an unexpired admin session from the video-intake login. */
+/**
+ * Throws unless `token` is an unexpired admin session from the admin login. The session slides:
+ * each successful call pushes its expiry to ADMIN_SESSION_MS from now, so only that long idle
+ * logs the admin out (M0's seed page sent the passcode on every call and never expired).
+ */
 export async function requireAdminSession(token: string | null | undefined): Promise<void> {
   const clean = cleanToken(token);
   if (!clean) throw new UserError(ADMIN_LOGIN_REQUIRED, 401);
-  const [session] = await db
-    .select({ expiresAt: videoIntakeAdminSessions.expiresAt })
-    .from(videoIntakeAdminSessions)
-    .where(eq(videoIntakeAdminSessions.token, clean));
-  if (!session || session.expiresAt <= Date.now()) throw new UserError(ADMIN_SESSION_EXPIRED, 401);
+  const now = Date.now();
+  const extended = await db
+    .update(videoIntakeAdminSessions)
+    .set({ expiresAt: now + ADMIN_SESSION_MS })
+    .where(and(eq(videoIntakeAdminSessions.token, clean), gt(videoIntakeAdminSessions.expiresAt, now)))
+    .returning({ id: videoIntakeAdminSessions.id });
+  if (extended.length === 0) throw new UserError(ADMIN_SESSION_EXPIRED, 401);
 }
