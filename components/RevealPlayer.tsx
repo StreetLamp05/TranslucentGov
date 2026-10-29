@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useEffectEvent, useRef, useState } from "react";
 import { fixedLine } from "@/components/feed/CardOverlay";
 import Slideshow from "@/components/feed/Slideshow";
 import type { PublicReport } from "@/server/lib/publicReport";
@@ -13,6 +13,11 @@ import { useSoundUnlocked } from "@/lib/hooks/sound";
 export const STAMP_MS = 700;
 // How long a slideshow (no clip) shows before the stamp.
 export const PHOTO_HOLD_MS = 4000;
+
+// True while the user has paused the card on screen (feed tap to pause, §5.1.1). The player
+// freezes its stamp and photo-hold timers and ignores taps until it clears; the feed pauses and
+// resumes the clips themselves. Only the active player reads it as meaningful.
+export const RevealPausedContext = createContext(false);
 
 export type RevealPhase = "original" | "stamp" | "fix";
 
@@ -70,6 +75,13 @@ export default function RevealPlayer({ report, active, near = true, video = null
   const fixUrl = near ? report.fixUrl : null;
 
   const unlocked = useSoundUnlocked();
+  const paused = useContext(RevealPausedContext);
+  // Time left on the stamp or a slideshow's hold, reset on entering the phase and counted down
+  // across pauses, so a resume carries on from where it stopped.
+  const timeLeft = useRef(0);
+  useEffect(() => {
+    timeLeft.current = phase === "stamp" ? STAMP_MS : PHOTO_HOLD_MS;
+  }, [active, phase, pass]);
   // Take over from the pool: it no longer loops the clip or restarts it on a tap, and the clip
   // ends, so `ended` fires. `restart` plays it from the top (every pass but the feed's first).
   const takeOver = useEffectEvent((el: HTMLVideoElement, restart: boolean) => {
@@ -84,10 +96,7 @@ export default function RevealPlayer({ report, active, near = true, video = null
   useEffect(() => {
     if (!active || phase !== "original") return;
     const toStamp = () => setPhase("stamp");
-    if (!original) {
-      const timer = setTimeout(toStamp, PHOTO_HOLD_MS);
-      return () => clearTimeout(timer);
-    }
+    if (!original) return;
     takeOver(original, pass > 0 || standalone);
     // The pool's src effect runs after this one in the same commit (parent effects run after
     // child effects) and turns loop back on when it points the element at this card: on first
@@ -115,12 +124,20 @@ export default function RevealPlayer({ report, active, near = true, video = null
     };
   }, [active, phase, original, pass, standalone]);
 
+  // A slideshow (no clip) shows for a few seconds before the stamp.
+  useEffect(() => {
+    if (!active || phase !== "original" || original || paused) return;
+    return countDown(timeLeft, () => setPhase("stamp"));
+  }, [active, phase, original, paused]);
+
   useEffect(() => {
     if (!active || phase !== "stamp") return;
     stamped();
-    const timer = setTimeout(() => setPhase("fix"), STAMP_MS);
-    return () => clearTimeout(timer);
   }, [active, phase]);
+  useEffect(() => {
+    if (!active || phase !== "stamp" || paused) return;
+    return countDown(timeLeft, () => setPhase("fix"));
+  }, [active, phase, paused]);
 
   useEffect(() => {
     if (!active || phase !== "fix") return;
@@ -156,7 +173,7 @@ export default function RevealPlayer({ report, active, near = true, video = null
   useEffect(() => {
     if (!active) return;
     const onTap = () => {
-      if (phase === "fix") return;
+      if (phase === "fix" || paused) return;
       if (phase === "original" && original?.paused && !original.ended) play(original);
       const el = fix.current;
       if (el?.getAttribute("src")) {
@@ -167,7 +184,7 @@ export default function RevealPlayer({ report, active, near = true, video = null
     };
     window.addEventListener("click", onTap, { capture: true });
     return () => window.removeEventListener("click", onTap, { capture: true });
-  }, [active, phase, original]);
+  }, [active, phase, original, paused]);
 
   const photos = report.frameUrls.filter((url): url is string => !!url);
   const media = (
@@ -248,6 +265,16 @@ function Stamp({ text }: { text: string }) {
       </div>
     </div>
   );
+}
+
+// Runs `fire` after what's left in `left`; clearing it (a pause, a phase change) subtracts the time spent.
+function countDown(left: { current: number }, fire: () => void) {
+  const start = Date.now();
+  const timer = setTimeout(fire, left.current);
+  return () => {
+    clearTimeout(timer);
+    left.current = Math.max(0, left.current - (Date.now() - start));
+  };
 }
 
 // If iOS refuses unmuted playback, play muted instead of not at all (same fallback as the feed's pool).
