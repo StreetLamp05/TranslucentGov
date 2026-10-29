@@ -3,7 +3,7 @@
 ## Source of truth
 - `GOVTOK_DECISIONS.md` is the design spec. Every locked decision lives there. Read its **Session state / handoff** block first when resuming.
 - GitHub Project #19 (owner `StreetLamp05`, https://github.com/users/StreetLamp05/projects/19) is the execution board. Issues are the **work slice** of the spec, not a restatement of it (see the translation rule below).
-- Stack (spec §1.1.1): Next.js (App Router) on Vercel, with Convex for the database, file storage, live updates, and server actions that call Claude.
+- Stack (spec §1.1.1): Next.js (App Router) + Postgres (Drizzle) + MinIO + a pg-boss worker, self-hosted with docker compose.
 
 ## Card hierarchy
 - **Feature** issues have the label `feature` and the title `F<N>: <name>`.

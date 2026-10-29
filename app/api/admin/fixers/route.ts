@@ -8,8 +8,8 @@ export const GET = route(async (_req, { caller }) => {
   return listFixers();
 });
 
-// POST { fixers: [{ name, org, passcode }] } → { inserted, updated }. Replaces M0's
-// `npx convex run fixers:seed`; running it again updates names and orgs.
+// POST { fixers: [{ name, org, passcode }] } → { inserted, updated }.
+// Running it again updates names and orgs.
 export const POST = route(async (req, { caller }) => {
   await caller.requireAdmin();
   const { fixers } = await readBody(req);

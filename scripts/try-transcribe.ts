@@ -1,27 +1,19 @@
 // Transcribes clips with the real Gemini API (§1.1.4) and prints each transcript as JSON.
 //
 // Usage: npx tsx scripts/try-transcribe.ts <clip.mp4|webm>...
-// The key comes from GEMINI_API_KEY in the environment, or else from the Convex deployment
-// .env.local points at (scripts/convex-env.sh sets it there). GEMINI_MODEL works the same way.
+// The key comes from GEMINI_API_KEY (and the model from GEMINI_MODEL) in the environment.
 // Clips over MAX_INLINE_BYTES go through the Files API, the rest inline.
-import { execSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { basename, extname } from "node:path";
-import { MAX_INLINE_BYTES, transcribe } from "../convex/lib/transcribe.ts";
+import { MAX_INLINE_BYTES, transcribe } from "../server/lib/transcribe.ts";
 
 const CONTENT_TYPES: Record<string, string> = { ".mp4": "video/mp4", ".webm": "video/webm" };
-
-function convexEnv(name: string): string {
-  return execSync(`npx convex env get ${name}`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-}
 
 async function main() {
   const files = process.argv.slice(2);
   if (files.length === 0) throw new Error("usage: npx tsx scripts/try-transcribe.ts <clip.mp4|webm>...");
 
-  process.env.GEMINI_API_KEY ||= convexEnv("GEMINI_API_KEY");
-  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY isn't set here or on the Convex deployment.");
-  process.env.GEMINI_MODEL ||= convexEnv("GEMINI_MODEL");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY isn't set.");
 
   for (const file of files) {
     try {

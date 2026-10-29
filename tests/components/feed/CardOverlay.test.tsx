@@ -2,8 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import CardOverlay, { statusText } from "../../../components/feed/CardOverlay";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 import { OWNER_CHIP, OWNERS } from "../../../server/lib/routing";
 
 const DAY_MS = 86_400_000;
@@ -15,7 +14,7 @@ const SEGMENTS = [
 
 function report(overrides: Partial<PublicReport> = {}): PublicReport {
   return {
-    _id: "r1" as Id<"reports">,
+    _id: "r1" as string,
     _creationTime: 0,
     mediaType: "video",
     lat: 33.8187,
@@ -174,7 +173,7 @@ describe("Sample badge", () => {
 });
 
 test("the map pin links to /map?report=<id>", () => {
-  show(report({ _id: "k57abc" as Id<"reports"> }));
+  show(report({ _id: "k57abc" as string }));
   expect(screen.getByRole("link", { name: "Show on map" }).getAttribute("href")).toBe("/map?report=k57abc");
 });
 

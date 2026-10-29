@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { db } from "@/server/db";
 import { fixers, reports, residents, type Report } from "@/server/db/schema";
-import { ownerReport, publicReport, publicReportOrNull, reportDoc, UNKNOWN_FIXER_LABEL } from "@/server/lib/publicReport";
+import { isPublicStatus, ownerReport, publicReport, publicReportOrNull, reportDoc, UNKNOWN_FIXER_LABEL } from "@/server/lib/publicReport";
 import { reportMedia } from "@/server/reportMedia";
 
-// The public projection (§7.1.1) on Postgres rows. The Convex side runs the same code through
-// convex/lib/publicReport.ts (tests/convex/lib/publicReport.test.ts).
+// The public projection (§7.1.1) on Postgres rows.
 
 async function insertReport(overrides: Partial<typeof reports.$inferInsert> = {}): Promise<Report> {
   const [resident] = await db.insert(residents).values({ token: crypto.randomUUID(), createdAt: 1 }).returning();
@@ -111,5 +110,67 @@ describe("publicReport on Postgres", () => {
     expect(own.reason).toBe("clear pothole");
 
     await expect(ownerReport(reportMedia, reportDoc(row), "someone-else")).rejects.toThrow(/isn't this resident's/);
+  });
+
+  it("labels a neighbor's fix as a neighbor", async () => {
+    const row = await insertReport({ status: "fixed", fixedByKind: "resident", fixedAt: 20, fixStorageId: "fix-key" });
+    expect((await publicReport(reportMedia, reportDoc(row))).fixedByLabel).toBe("neighbor");
+  });
+
+  it("uses a fixer's stored org when there is no fixer row", async () => {
+    const row = await insertReport({
+      status: "fixed",
+      fixedByKind: "fixer",
+      fixedByOrg: "Cobb DOT",
+      fixedAt: 20,
+      fixStorageId: "fix-key",
+    });
+    expect((await publicReport(reportMedia, reportDoc(row))).fixedByLabel).toBe("Cobb DOT");
+  });
+
+  it("gives an unfixed report no fixedByLabel", async () => {
+    const pub = await publicReport(reportMedia, reportDoc(await insertReport()));
+    expect(pub.fixedByLabel).toBeUndefined();
+    expect(pub.fixUrl).toBeNull();
+  });
+
+  it("carries no resident or fixer ID anywhere in the payload", async () => {
+    const [fixer] = await db.insert(fixers).values({ name: "Dana", org: "Cobb DOT", passcode: "1" }).returning();
+    const row = await insertReport({
+      status: "fixed",
+      fixedByKind: "fixer",
+      fixedBy: fixer.id,
+      fixedAt: 20,
+      fixStorageId: "fix-key",
+    });
+    const json = JSON.stringify(await publicReport(reportMedia, reportDoc(row)));
+    expect(json).not.toContain(row.residentId);
+    expect(json).not.toContain(fixer.id);
+  });
+
+  it("isPublicStatus is true only for open and fixed", () => {
+    expect(["pending", "held", "open", "fixed"].filter((s) => isPublicStatus(s as Report["status"]))).toEqual([
+      "open",
+      "fixed",
+    ]);
+  });
+
+  it("publicReportOrNull is null for no report and projects an open one", async () => {
+    expect(await publicReportOrNull(reportMedia, null)).toBeNull();
+    const open = await publicReportOrNull(reportMedia, reportDoc(await insertReport()));
+    expect(open?.status).toBe("open");
+  });
+
+  it("ownerReport never reveals the neighbor who confirmed a fix", async () => {
+    const row = await insertReport({ status: "fixed", fixedByKind: "resident", fixedAt: 20, fixStorageId: "fix-key" });
+    expect(await ownerReport(reportMedia, reportDoc(row), row.residentId)).not.toHaveProperty("fixedBy");
+  });
+
+  it("ownerReport hides the transcript and description of a muted report", async () => {
+    const row = await insertReport({ audioMuted: true, status: "held", verdict: "retake" });
+    const own = await ownerReport(reportMedia, reportDoc(row), row.residentId);
+    expect(own).not.toHaveProperty("transcript");
+    expect(own).not.toHaveProperty("description");
+    expect(own).not.toHaveProperty("segments");
   });
 });

@@ -14,8 +14,8 @@ import { assertKeysUnused, mediaKeys, type PostMedia } from "./posts";
 import { isUploadedBy, statObject } from "./storage";
 import { assertNotIntake } from "./videoIntake";
 
-// Sample reports for the demo (§6.1.1), from /admin/seed (routes: app/api/admin/). Ports
-// convex/seed.ts. The page uploads each sample's files to MinIO, then seedSamples saves them as
+// Sample reports for the demo (§6.1.1), from /admin/seed (routes: app/api/admin/). The
+// page uploads each sample's files to MinIO, then seedSamples saves them as
 // `isSample` reports and queues the real screenReport for each, then, for a sample with a fix
 // clip, the real verifyFix (server/jobs/seedFix.ts). Admin-only: the routes check the session.
 

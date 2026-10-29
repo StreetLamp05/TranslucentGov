@@ -2,13 +2,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import CardActions from "../../../components/feed/CardActions";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 import type { Owner } from "../../../server/lib/routing";
 
 function report(owner: Owner, status: PublicReport["status"] = "open"): PublicReport {
   return {
-    _id: "r1" as Id<"reports">,
+    _id: "r1" as string,
     _creationTime: 0,
     mediaType: "video",
     lat: 33.8187,

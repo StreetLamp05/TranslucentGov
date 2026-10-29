@@ -13,7 +13,7 @@ Ramp-up sequence for beginning (or resuming) work on a GovTok card. Run every st
 ## 1. Identify the card
 
 - If an issue number or branch-style slug was passed as an argument, use that.
-- Otherwise, use the current git branch (`git branch --show-current`) — branches are named after their card per CLAUDE.md's "Create a branch" convention (e.g. `US3-upload-a-video-to-convex-storage`). Extract the card ID (`US3`) from it.
+- Otherwise, use the current git branch (`git branch --show-current`) — branches are named after their card per CLAUDE.md's "Create a branch" convention (e.g. `US3-upload-a-video-to-minio-storage`). Extract the card ID (`US3`) from it.
 - If the branch doesn't look like a card branch (e.g. `main`, or an unrelated name), ask the user which card they mean rather than guessing.
 - Claim it. Two people work this board, and the assignee owns the card. Check `gh issue view <n> -R StreetLamp05/TranslucentGov --json assignees`. If it's assigned to someone other than you (`gh api user --jq .login`), stop and ask the user before doing anything, because their partner is likely already on it. If it's unassigned, run `gh issue edit <n> --add-assignee @me -R StreetLamp05/TranslucentGov`. `dispatch-cards` has usually done this already.
 - If no branch exists yet for the card being started, create one — but **match this repo's naming convention exactly**: `<CardID>-<kebab-case-title>` (e.g. `US19-build-table-view-ui`), card ID first, title lowercased. `gh issue develop <issue-number> --checkout --name "<CardID>-<kebab-title>` based off of up-to-date main.

@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { getFunctionName, type FunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from "vitest";
 import type { CaptureMode } from "../../../components/capture/CameraCapture";
 import type { RecordedClip } from "../../../lib/hooks/useClipRecorder";
-import type { OwnerReport } from "../../../convex/lib/publicReport";
+import type { OwnerReport } from "../../../server/lib/publicReport";
 import MeReportCard, { reportStatusText } from "../../../components/me/MeReportCard";
 import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../server/lib/screening";
 
@@ -15,12 +14,6 @@ const state = vi.hoisted(() => ({
   uploads: [] as Blob[],
 }));
 
-vi.mock("convex/react", () => ({
-  useMutation: (ref: FunctionReference<"mutation">) => {
-    const name = getFunctionName(ref);
-    return (state.mutations[name] ??= vi.fn());
-  },
-}));
 // Retake and ScreeningFailed (components/post/CheckingScreen.tsx) call the route handlers (US35).
 vi.mock("../../../lib/data/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../lib/data/api")>()),

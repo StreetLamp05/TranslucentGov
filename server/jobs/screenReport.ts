@@ -9,8 +9,8 @@ import { screenPost, type Verdict } from "../lib/screenPrompt";
 import { transcribe } from "../lib/transcribe";
 import { readObject, statObject } from "../storage";
 
-// Screens a pending report with Gemini (§4.2.1) and flips it to open or held. Ports
-// convex/screening.ts and screeningDb.ts. Enqueued as `screenReport { reportId }` by posting,
+// Screens a pending report with Gemini (§4.2.1) and flips it to open or held.
+// Enqueued as `screenReport { reportId }` by posting,
 // a retake and Try again. pg-boss doesn't retry (server/jobs.ts), so the one retry is a new job.
 
 export const SCREEN_REPORT = "screenReport";
@@ -205,7 +205,7 @@ export async function screenReport({ reportId, attempt = 0 }: ScreenReportPayloa
     console.error(`screenReport: attempt ${attempt} on ${reportId} failed:`, error);
     const message = error instanceof Error ? error.message : String(error);
     // One retry for every error, refusals and rate limits included, after Gemini's delay
-    // (§4.2.1, as convex/screening.ts did). A second failure holds the report.
+    // (§4.2.1). A second failure holds the report.
     if (attempt < 1) {
       const delayMs = (error instanceof GeminiError ? error.retryAfterMs : undefined) ?? RETRY_DELAY_MS;
       await enqueue(SCREEN_REPORT, { reportId, attempt: attempt + 1 }, { delaySeconds: Math.ceil(delayMs / 1000) });

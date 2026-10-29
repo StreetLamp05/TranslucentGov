@@ -35,8 +35,8 @@ type Props = {
   report: RevealReport;
   // Plays while true. Going false resets to the original.
   active: boolean;
-  // Load the fix clip (and, standalone, the original) only when near (Convex's free file
-  // bandwidth is small).
+  // Load the fix clip (and, standalone, the original) only when near (file bandwidth
+  // is limited).
   near?: boolean;
   // Feed: the pooled element playing the original, which the pool starts (null for a
   // slideshow, which CardOverlay draws). The player takes it over with `loop = false`.

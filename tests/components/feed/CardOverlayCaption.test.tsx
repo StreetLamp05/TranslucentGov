@@ -2,13 +2,12 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "vitest";
 import CardOverlay from "../../../components/feed/CardOverlay";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 
 const CLIP = "https://files.test/r1.mp4";
 
 const report = {
-  _id: "r1" as Id<"reports">,
+  _id: "r1",
   _creationTime: 0,
   mediaType: "video",
   owner: "cobb",

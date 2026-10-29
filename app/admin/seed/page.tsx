@@ -490,7 +490,7 @@ function ReportTools({ onFail }: { onFail: (cause: unknown) => void }) {
   );
 }
 
-// Fixers for the "Filmed by…" picker (§3.1.2), replacing `npx convex run fixers:seed`. One per
+// Fixers for the "Filmed by…" picker (§3.1.2). One per
 // line as `name | org | passcode`; running it again updates a fixer by passcode.
 function FixersForm({ onFail }: { onFail: (cause: unknown) => void }) {
   const [text, setText] = useState("");

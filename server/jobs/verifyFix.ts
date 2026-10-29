@@ -7,8 +7,8 @@ import { blobToImage, GeminiError } from "../lib/gemini";
 import { readObject, statObject } from "../storage";
 
 // The proof-of-fix check (§4.3.1): the original's images go in as BEFORE, the fix clip's frames
-// as AFTER, and Gemini's verdict closes the report or goes back to the person filming. Ports
-// convex/fixVerification.ts and fixVerificationDb.ts. Enqueued as `verifyFix { fixAttemptId }`.
+// as AFTER, and Gemini's verdict closes the report or goes back to the person filming.
+// Enqueued as `verifyFix { fixAttemptId }`.
 
 export const VERIFY_FIX = "verifyFix";
 export type VerifyFixPayload = { fixAttemptId: string; attempt?: number };

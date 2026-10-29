@@ -6,9 +6,9 @@ import { enqueue } from "../jobs";
 import { CITY_ONLY, neighborCanConfirm } from "../lib/fixRules";
 import { VERIFY_FIX } from "./verifyFix";
 
-// The seed's fix clips (§6.1.1). Ports convex/seed.ts `attachFix` and `backdateFix`, which
-// rescheduled themselves; here each polls by queueing itself again, POLL_SECONDS later. The
-// names and types live here, not in server/seed.ts, so the worker doesn't load route code.
+// The seed's fix clips (§6.1.1). `attachFix` and `backdateFix` each poll by
+// queueing themselves again, POLL_SECONDS later. The names and types live here,
+// not in server/seed.ts, so the worker doesn't load route code.
 
 export const ATTACH_SEED_FIX = "attachSeedFix";
 export const BACKDATE_SEED_FIX = "backdateSeedFix";
