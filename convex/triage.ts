@@ -1,7 +1,7 @@
 import { query } from "./_generated/server";
 import { PUBLIC_STATUSES } from "./lib/publicReport";
 import { ROUTING } from "../server/lib/routing";
-import { triageOverview, type TriageGroup } from "./lib/triageGroups";
+import { triageOverview, type TriageGroup } from "../server/lib/triageGroups";
 
 // The triage dashboard's overview (§5.5.1): every agency in the active routing table with
 // its open and fixed counts. Public and read-only (§3.1.3), so it returns no report fields,

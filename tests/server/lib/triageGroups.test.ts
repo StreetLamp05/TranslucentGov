@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { MABLETON, SAN_FRANCISCO } from "../../../server/lib/city";
-import { CATEGORIES, type Category } from "../../../server/lib/routing";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { MABLETON, SAN_FRANCISCO } from "@/server/lib/city";
+import { CATEGORIES, type Category } from "@/server/lib/routing";
 import {
   agencyForSlug,
   agencyGroups,
@@ -10,7 +9,7 @@ import {
   triageOverview,
   triageQueue,
   type QueueRow,
-} from "../../../convex/lib/triageGroups";
+} from "@/server/lib/triageGroups";
 
 const CITIES = { sf: SAN_FRANCISCO, mableton: MABLETON };
 
@@ -84,7 +83,7 @@ test("the group comes from the table passed in, not a stored agency; a missing c
 
 describe("triageQueue", () => {
   const row = (id: string, overrides: Partial<QueueRow>): QueueRow => ({
-    _id: id as Id<"reports">,
+    _id: id,
     title: id,
     category: "trash_missed",
     status: "open",
