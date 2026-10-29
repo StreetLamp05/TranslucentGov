@@ -4,7 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, type MutationCtx } from "./_generated/server";
 import { findResident } from "./lib/auth";
 import { checkPostMedia } from "./lib/postMedia";
-import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "./lib/screening";
+import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../server/lib/screening";
 import { mediaTypeValidator } from "./schema";
 
 // The poster's way out of a hold (§4.2.1), from the Checking… screen (US14) and the Me page

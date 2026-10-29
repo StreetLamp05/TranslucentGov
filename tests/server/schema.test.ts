@@ -1,6 +1,6 @@
 import { and, eq, getTableName, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { CATEGORIES, OWNERS } from "@/convex/lib/routing";
+import { CATEGORIES, OWNERS } from "@/server/lib/routing";
 import { db } from "@/server/db";
 import * as schema from "@/server/db/schema";
 import { meToos, reports, residents } from "@/server/db/schema";

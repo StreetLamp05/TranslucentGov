@@ -1,4 +1,4 @@
-import { ACTIVE_CITY } from "../convex/lib/city";
+import { ACTIVE_CITY } from "../server/lib/city";
 
 // Demo location mode (§6.1.1): `?demo=<city id>` (`?demo=sf`) swaps the phone's GPS for DEMO_POINT.
 export const DEMO_PARAM = "demo";

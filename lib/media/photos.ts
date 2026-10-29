@@ -1,4 +1,4 @@
-import { MAX_PHOTOS } from "../../convex/lib/postLimits";
+import { MAX_PHOTOS } from "../../server/lib/postLimits";
 import { FRAME_JPEG_QUALITY } from "./constants";
 import { frameSize } from "./frames";
 

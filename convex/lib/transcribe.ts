@@ -1,4 +1,4 @@
-import { MAX_CLIP_BYTES } from "./clipLimit";
+import { MAX_CLIP_BYTES } from "../../server/lib/clipLimit";
 
 declare const process: { env: { GROQ_API_KEY?: string } };
 

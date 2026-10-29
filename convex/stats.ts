@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { isPublicStatus } from "./lib/publicReport";
-import { OWNERS, type Owner } from "./lib/routing";
+import { OWNERS, type Owner } from "../server/lib/routing";
 
 // §6.2.1's supporting counters, pulled live during the pitch. No dashboard screen.
 // Cal Hacks: `npx convex run --prod stats:impact`. Samples stay in, because the on-stage

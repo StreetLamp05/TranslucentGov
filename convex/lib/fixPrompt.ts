@@ -1,7 +1,7 @@
 import { Type, type Part, type Schema } from "@google/genai";
 import type { Infer } from "convex/values";
 import type { fixAttemptStatusValidator } from "../schema";
-import { ACTIVE_CITY } from "./city";
+import { ACTIVE_CITY } from "../../server/lib/city";
 import { callGeminiJSON, GeminiError, imageBlock, type ImageInput } from "./gemini";
 
 // The proof-of-fix check (§4.3.1): one Gemini call (§1.1.3 call shape) compares the

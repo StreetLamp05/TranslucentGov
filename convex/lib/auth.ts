@@ -1,17 +1,20 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import {
+  cleanToken,
+  INVALID_FIXER_TOKEN,
+  MISSING_DEVICE_TOKEN,
+  MISSING_FIXER_TOKEN,
+} from "../../server/lib/auth";
 
 // Device-token identity (§3.1.1) and fixer tokens (§3.1.2). No auth provider.
-
-function cleanToken(token: string | undefined): string {
-  return (token ?? "").trim();
-}
+// server/auth.ts is the same lookups on Postgres.
 
 // Mutations: resolves the device token to a resident, creating one on first use.
 export async function getOrCreateResident(ctx: MutationCtx, token: string): Promise<Id<"residents">> {
   const clean = cleanToken(token);
-  if (!clean) throw new ConvexError("Missing device token");
+  if (!clean) throw new ConvexError(MISSING_DEVICE_TOKEN);
   const existing = await ctx.db
     .query("residents")
     .withIndex("by_token", (q) => q.eq("token", clean))
@@ -33,11 +36,11 @@ export async function findResident(ctx: QueryCtx, token: string): Promise<Id<"re
 
 export async function requireFixer(ctx: QueryCtx, fixerToken: string): Promise<Doc<"fixers">> {
   const clean = cleanToken(fixerToken);
-  if (!clean) throw new ConvexError("Missing fixer token");
+  if (!clean) throw new ConvexError(MISSING_FIXER_TOKEN);
   const fixer = await ctx.db
     .query("fixers")
     .withIndex("by_token", (q) => q.eq("token", clean))
     .unique();
-  if (!fixer) throw new ConvexError("Invalid fixer token");
+  if (!fixer) throw new ConvexError(INVALID_FIXER_TOKEN);
   return fixer;
 }

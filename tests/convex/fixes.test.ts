@@ -2,8 +2,8 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { CITY_ONLY, tooFarMessage } from "../../convex/lib/fixRules";
-import type { Owner } from "../../convex/lib/routing";
+import { CITY_ONLY, tooFarMessage } from "../../server/lib/fixRules";
+import type { Owner } from "../../server/lib/routing";
 import schema from "../../convex/schema";
 import { modules } from "./setup";
 

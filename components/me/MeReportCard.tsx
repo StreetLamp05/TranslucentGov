@@ -6,7 +6,7 @@ import { statusText } from "@/components/feed/CardOverlay";
 import { HoldDebug, Retake, ScreeningFailed } from "@/components/post/CheckingScreen";
 import RevealPlayer from "@/components/RevealPlayer";
 import type { OwnerReport, PublicReport } from "@/convex/lib/publicReport";
-import { SCREENING_FAILED_REASON } from "@/convex/lib/screening";
+import { SCREENING_FAILED_REASON } from "@/server/lib/screening";
 import { daysLabel, daysOpen } from "@/lib/days";
 
 type Props = {

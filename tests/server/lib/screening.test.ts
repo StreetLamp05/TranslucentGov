@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { MAX_SCREENING_ERROR_LENGTH, SCREENING_FAILED_REASON, screeningErrorSummary } from "../../../convex/lib/screening";
+import { MAX_SCREENING_ERROR_LENGTH, SCREENING_FAILED_REASON, screeningErrorSummary } from "../../../server/lib/screening";
 
 test("the screening-failed reason is the §4.2.1 string", () => {
   expect(SCREENING_FAILED_REASON).toBe("screening failed");

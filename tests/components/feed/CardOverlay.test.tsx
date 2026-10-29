@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import CardOverlay, { statusText } from "../../../components/feed/CardOverlay";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { PublicReport } from "../../../convex/lib/publicReport";
-import { OWNER_CHIP, OWNERS } from "../../../convex/lib/routing";
+import { OWNER_CHIP, OWNERS } from "../../../server/lib/routing";
 
 const DAY_MS = 86_400_000;
 const CLIP = "https://files.test/r1.mp4";

@@ -1,9 +1,9 @@
 import { Type, type Part, type Schema } from "@google/genai";
 import type { Infer } from "convex/values";
 import type { verdictValidator } from "../schema";
-import { ACTIVE_CITY } from "./city";
+import { ACTIVE_CITY } from "../../server/lib/city";
 import { callGeminiJSON, GeminiError, imageBlock, type ImageInput } from "./gemini";
-import { CATEGORIES, routeCategory, type Category } from "./routing";
+import { CATEGORIES, routeCategory, type Category } from "../../server/lib/routing";
 
 // Screening and card fill-in in one Gemini call (§1.1.3). The policy is §4.2.1, the
 // category list is §2.1.2. Gemini picks the category; routeCategory picks the owner.

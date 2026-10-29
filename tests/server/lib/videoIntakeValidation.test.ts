@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateVideoMetadata } from "./videoIntakeValidation";
+import { validateVideoMetadata } from "@/server/lib/videoIntakeValidation";
 
 describe("validateVideoMetadata", () => {
   it("allows supported video types and normalizes MIME parameters", () => {

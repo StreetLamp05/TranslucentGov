@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { PRESETS, PRESETS_BY_CITY } from "../../../../app/admin/seed/presets";
-import { ACTIVE_CITY, MABLETON, SAN_FRANCISCO } from "../../../../convex/lib/city";
-import { haversineMeters, NEARBY_METERS } from "../../../../convex/lib/geo";
+import { ACTIVE_CITY, MABLETON, SAN_FRANCISCO } from "../../../../server/lib/city";
+import { haversineMeters, NEARBY_METERS } from "../../../../server/lib/geo";
 import { DEMO_POINT } from "../../../../lib/demo";
 
 // The stage flow (§6.1.1) needs the demo point next to a seeded pothole (duplicate check,

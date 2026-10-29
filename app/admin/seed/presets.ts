@@ -1,4 +1,4 @@
-import { ACTIVE_CITY } from "../../../convex/lib/city";
+import { ACTIVE_CITY } from "../../../server/lib/city";
 import type { LatLng } from "../../../lib/demo";
 
 // Where samples can be placed (§6.1.1): spots on public roads in the active city

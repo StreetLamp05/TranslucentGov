@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { GeminiError } from "../../../convex/lib/gemini";
-import { CATEGORIES } from "../../../convex/lib/routing";
+import { CATEGORIES } from "../../../server/lib/routing";
 import {
   clampTitle,
   parseScreenResult,

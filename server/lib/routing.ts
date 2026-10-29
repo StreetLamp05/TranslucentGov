@@ -1,8 +1,7 @@
-import { v } from "convex/values";
 import { ACTIVE_CITY } from "./city";
 
 // §2.1.2: Claude picks the category; this fixed table picks the owner. Claude never
-// chooses the owner. The table is the active city's (convex/lib/city.ts).
+// chooses the owner. The table is the active city's (server/lib/city.ts).
 
 export const CATEGORIES = [
   "pothole",
@@ -18,9 +17,6 @@ export type Category = (typeof CATEGORIES)[number];
 
 export const OWNERS = ["city", "cobb", "utility", "unknown"] as const;
 export type Owner = (typeof OWNERS)[number];
-
-export const categoryValidator = v.union(...CATEGORIES.map((c) => v.literal(c)));
-export const ownerValidator = v.union(...OWNERS.map((o) => v.literal(o)));
 
 export const ROUTING: Record<Category, { owner: Owner; agency: string }> = ACTIVE_CITY.routing;
 

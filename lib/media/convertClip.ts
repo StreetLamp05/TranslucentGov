@@ -1,4 +1,4 @@
-import { MAX_CLIP_BYTES } from "../../convex/lib/clipLimit";
+import { MAX_CLIP_BYTES } from "../../server/lib/clipLimit";
 import { AUDIO_BITS_PER_SECOND, MAX_RECORD_MS, VIDEO_BITS_PER_SECOND } from "./constants";
 import { frameSize } from "./frames";
 import { normalizeMimeType, pickMimeType } from "./mimeType";

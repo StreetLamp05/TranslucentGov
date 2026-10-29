@@ -7,10 +7,10 @@ import { useState, type ReactNode } from "react";
 import CameraCapture from "@/components/capture/CameraCapture";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { MAX_CLIP_BYTES } from "@/convex/lib/clipLimit";
-import { CLIP_TOO_BIG } from "@/convex/lib/postLimits";
+import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
+import { CLIP_TOO_BIG } from "@/server/lib/postLimits";
 import type { OwnerReport } from "@/convex/lib/publicReport";
-import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "@/convex/lib/screening";
+import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "@/server/lib/screening";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 import { uploadFile } from "@/lib/upload";
 

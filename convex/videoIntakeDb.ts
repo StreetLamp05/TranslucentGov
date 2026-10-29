@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { ADMIN_LOGIN_REQUIRED, ADMIN_SESSION_EXPIRED } from "../server/lib/auth";
 
 export const createAdminSession = internalMutation({
   args: { token: v.string(), expiresAt: v.number() },
@@ -18,13 +19,13 @@ export const createAdminSession = internalMutation({
 export const requireAdminSession = internalQuery({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    if (!token) throw new ConvexError("Admin login required.");
+    if (!token) throw new ConvexError(ADMIN_LOGIN_REQUIRED);
     const session = await ctx.db
       .query("videoIntakeAdminSessions")
       .withIndex("by_token", (q) => q.eq("token", token))
       .unique();
     if (!session || session.expiresAt <= Date.now()) {
-      throw new ConvexError("Admin session expired. Sign in again.");
+      throw new ConvexError(ADMIN_SESSION_EXPIRED);
     }
     return true;
   },
