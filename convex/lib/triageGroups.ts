@@ -82,7 +82,8 @@ export type QueueRow = {
 export type TriageQueue = { agency: string; owner: Owner; open: QueueRow[]; fixed: QueueRow[] };
 
 // A group's queue, or null for a slug that isn't an agency in this table. Open reports are
-// ranked by how many neighbors flagged them (1 + me-toos), the oldest first on a tie; fixed
+// ranked by how many neighbors flagged them (1 + me-toos), the newest first on a tie, so a
+// fresh post shows near the top of its 0-me-too peers (the §6.1.2 stage beat); fixed
 // ones newest first, so ownership shows as results (§5.5.2).
 export function triageQueue(routing: RoutingTable, slug: string, rows: readonly QueueRow[]): TriageQueue | null {
   const group = agencyForSlug(routing, slug);
@@ -93,7 +94,7 @@ export function triageQueue(routing: RoutingTable, slug: string, rows: readonly 
     owner: group.owner,
     open: mine
       .filter((row) => row.status === "open")
-      .sort((a, b) => b.meTooCount - a.meTooCount || a.createdAt - b.createdAt),
+      .sort((a, b) => b.meTooCount - a.meTooCount || b.createdAt - a.createdAt),
     fixed: mine.filter((row) => row.status === "fixed").sort((a, b) => (b.fixedAt ?? 0) - (a.fixedAt ?? 0)),
   };
 }

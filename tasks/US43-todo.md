@@ -26,6 +26,6 @@ Review fixes (no decision needed; re-verified: 24/24 dashboard tests, tsc, eslin
 - `triageGroups.ts` comment corrected: it imports only the `Id` type; US44 swaps that type
 
 Decide (left for the user, non-blocking):
-- A fresh live post sorts to the bottom of its agency's Open list (0 me-toos, newest = last on a tie, per §5.5.2), which may push it off-screen during the ~8 s §6.1.2 beat. Options: break ties newest-first, highlight a just-arrived report, keep the list short before the demo, or rehearse the scroll (US45).
+- ~~A fresh live post sorts to the bottom of its agency's Open list~~ Resolved (user, 2026-10-28): ties now break newest-first (§5.5.2 retcon). Was: (0 me-toos, newest = last on a tie, per §5.5.2), which may push it off-screen during the ~8 s §6.1.2 beat. Options: break ties newest-first, highlight a just-arrived report, keep the list short before the demo, or rehearse the scroll (US45).
 - Spec tidy-ups: Session state still says "US44 #16 closed"; §5.5.2 says rows follow §5.3.1, but the card uses the feed's wording and no per-row chip; §5.3.1 / §6.1.1 have stale "Claude" / "stay Mableton" lines.
 - Before committing: `npx convex codegen` to confirm the hand-added `triageGroup` entry in `api.d.ts`.

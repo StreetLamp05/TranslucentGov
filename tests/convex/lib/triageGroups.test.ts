@@ -95,7 +95,7 @@ describe("triageQueue", () => {
     ...overrides,
   });
 
-  test("open rows rank by me-toos, the older first on a tie; fixed rows newest fix first", () => {
+  test("open rows rank by me-toos, the newer first on a tie; fixed rows newest fix first", () => {
     const queue = triageQueue(MABLETON.routing, "mableton-sanitation", [
       row("few", { meTooCount: 1, createdAt: 5 }),
       row("many", { meTooCount: 9, createdAt: 9 }),
@@ -104,7 +104,7 @@ describe("triageQueue", () => {
       row("fixed-old", { status: "fixed", fixedAt: 10 }),
       row("fixed-new", { status: "fixed", fixedAt: 30 }),
     ]);
-    expect(queue?.open.map((r) => r._id)).toEqual(["many", "tie-older", "tie-newer", "few"]);
+    expect(queue?.open.map((r) => r._id)).toEqual(["many", "tie-newer", "tie-older", "few"]);
     expect(queue?.fixed.map((r) => r._id)).toEqual(["fixed-new", "fixed-old"]);
     expect(queue).toMatchObject({ agency: "Mableton Sanitation", owner: "city" });
   });

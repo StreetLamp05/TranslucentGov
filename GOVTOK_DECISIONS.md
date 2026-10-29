@@ -469,7 +469,8 @@ Updated incrementally as decisions are locked in.
 
 **5.5.2 A group's queue — community-ranked open list + recently fixed (directional)**
 - `/gov/<slug>` shows the group's reports (§2.1.4) in two sections:
-  - **Open:** sorted by `1 + meTooCount`, descending, with the oldest `createdAt` first on a tie.
+  - **Open:** sorted by `1 + meTooCount`, descending, with the **newest** `createdAt` first on a tie.
+    - **Retcon (2026-10-28, user decision, from the US43 review):** ties were oldest first. A live post has 0 me-toos and is the newest report, so oldest-first put it at the bottom of its agency's list, possibly off-screen during the ~8 s stage beat (§6.1.2). Newest-first puts it at the top of its 0-me-too peers. Me-toos still lead the order.
   - **Recently fixed:** sorted by `fixedAt`, newest first. All fixed reports at M1 scale; a cap is an implementation-time call.
 - Row content follows the fixer list (§5.3.1): thumbnail, title, street, days open ("Fixed in N days" for fixed rows, §2.1.3) and me-too count. Public fields only (§3.1.3).
 - Tapping a row opens the feed card at `/?report=<id>` (the §5.2.1 deep link), which has the video, the reveal and "on map". No new detail screen.
