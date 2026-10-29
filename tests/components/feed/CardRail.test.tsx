@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import CardRail from "../../../components/feed/CardRail";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { PublicReport } from "../../../convex/lib/publicReport";
-import type { Owner } from "../../../convex/lib/routing";
+import type { Owner } from "../../../server/lib/routing";
 
 // A tiny stand-in for Convex's client query store, so the card's real optimistic update runs
 // against it: useQuery reads from it, and the mutation applies the update before the server

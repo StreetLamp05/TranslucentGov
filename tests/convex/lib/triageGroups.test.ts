@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { MABLETON, SAN_FRANCISCO } from "../../../convex/lib/city";
-import { CATEGORIES, type Category } from "../../../convex/lib/routing";
+import { MABLETON, SAN_FRANCISCO } from "../../../server/lib/city";
+import { CATEGORIES, type Category } from "../../../server/lib/routing";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   agencyForSlug,

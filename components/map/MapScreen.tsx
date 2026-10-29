@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { ACTIVE_CITY } from "../../convex/lib/city";
+import { ACTIVE_CITY } from "../../server/lib/city";
 import { api } from "../../convex/_generated/api";
 import { useDemoMode } from "../../lib/hooks/useDemoMode";
 import { clusterCount, MIXED_COLOR, STATUS_COLOR, type MapStatus } from "./counts";

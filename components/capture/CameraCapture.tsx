@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import DemoBanner from "@/app/DemoBanner";
-import { MAX_PHOTOS } from "@/convex/lib/postLimits";
+import { MAX_PHOTOS } from "@/server/lib/postLimits";
 import { useClipRecorder, type RecordedClip } from "@/lib/hooks/useClipRecorder";
 import { MAX_RECORD_MS } from "@/lib/media/constants";
 import { grabFrame } from "@/lib/media/frames";

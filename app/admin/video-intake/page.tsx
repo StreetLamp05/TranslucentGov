@@ -5,7 +5,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import VideoRecorder, { type RecordedClip } from "@/components/capture/VideoRecorder";
-import { MAX_CLIP_BYTES } from "@/convex/lib/clipLimit";
+import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
 import { normalizeMimeType } from "@/lib/media/mimeType";
 
 type InputMode = "record" | "file";

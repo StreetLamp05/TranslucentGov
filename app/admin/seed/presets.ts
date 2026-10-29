@@ -1,8 +1,8 @@
-import { ACTIVE_CITY } from "../../../convex/lib/city";
+import { ACTIVE_CITY } from "../../../server/lib/city";
 import type { LatLng } from "../../../lib/demo";
 
 // Where samples can be placed (§6.1.1): spots on public roads in the active city
-// (convex/lib/city.ts), from OpenStreetMap. In each list the first two are within 50 m of
+// (server/lib/city.ts), from OpenStreetMap. In each list the first two are within 50 m of
 // that city's demo point, for the stage flow's me-too and before/after beats
 // (tests/app/admin/seed/presets.test.ts checks). The pothole is the nearer one, so the
 // duplicate check (nearest first) offers it first. The rest spread across town for the map.

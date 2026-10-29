@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { statusText } from "@/components/feed/CardOverlay";
-import { OWNER_CHIP } from "@/convex/lib/routing";
+import { OWNER_CHIP } from "@/server/lib/routing";
 import type { QueueRow, TriageQueue } from "@/convex/lib/triageGroups";
 
 // One agency's queue (§5.5.2): open reports ranked by neighbors (as the query returns them),

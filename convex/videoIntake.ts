@@ -1,9 +1,9 @@
 import { v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { MAX_CLIP_BYTES } from "./lib/clipLimit";
+import { MAX_CLIP_BYTES } from "../server/lib/clipLimit";
 import type { Transcription } from "./lib/transcribe";
-import { validateVideoMetadata } from "./lib/videoIntakeValidation";
+import { validateVideoMetadata } from "../server/lib/videoIntakeValidation";
 
 const INTAKE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 

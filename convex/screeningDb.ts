@@ -4,9 +4,9 @@ import { ConvexError, v, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { ROUTING, categoryValidator } from "./lib/routing";
-import { SCREENING_FAILED_REASON, screeningErrorSummary } from "./lib/screening";
-import { segmentValidator, verdictValidator } from "./schema";
+import { ROUTING } from "../server/lib/routing";
+import { SCREENING_FAILED_REASON, screeningErrorSummary } from "../server/lib/screening";
+import { categoryValidator, segmentValidator, verdictValidator } from "./schema";
 
 // The files being screened. A retake replaces them on the same report (§4.2.1), so a result
 // for the old files must not land on the new ones.

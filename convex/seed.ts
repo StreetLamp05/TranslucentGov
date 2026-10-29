@@ -2,17 +2,16 @@ import { ConvexError, v, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type MutationCtx } from "./_generated/server";
+import { isAdminPasscode } from "../server/lib/adminPasscode";
 import { getOrCreateResident } from "./lib/auth";
-import { MAX_CLIP_BYTES } from "./lib/clipLimit";
-import { CITY_ONLY, neighborCanConfirm } from "./lib/fixRules";
-import { CLIP_TOO_BIG, MAX_DESCRIPTION_LENGTH, MAX_PHOTOS, MAX_VIDEO_FRAMES } from "./lib/postLimits";
+import { MAX_CLIP_BYTES } from "../server/lib/clipLimit";
+import { CITY_ONLY, neighborCanConfirm } from "../server/lib/fixRules";
+import { CLIP_TOO_BIG, MAX_DESCRIPTION_LENGTH, MAX_PHOTOS, MAX_VIDEO_FRAMES } from "../server/lib/postLimits";
 import { mediaTypeValidator } from "./schema";
 
 // Sample reports for the demo (§6.1.1), from /admin/seed. Each sample goes through the real
 // screenReport, then optionally the real verifyFix. Every function here checks ADMIN_PASSCODE
 // server-side; the page only ever holds what the admin typed.
-
-declare const process: { env: { ADMIN_PASSCODE?: string } };
 
 // Batches are screened 10 s apart, so they stay under the model API's tokens-per-minute limit.
 export const SCREEN_STAGGER_MS = 10_000;
@@ -25,18 +24,7 @@ export const TRANSCRIBABLE = ["video/mp4", "video/webm"];
 export const NOT_TRANSCRIBABLE = "the clip must be MP4 or WebM (convert an iPhone .MOV first).";
 
 function requireAdmin(passcode: string) {
-  const configured = process.env.ADMIN_PASSCODE;
-  if (!configured || !sameSecret(passcode, configured)) throw new ConvexError(WRONG_PASSCODE);
-}
-
-// The same constant-time comparison as videoIntakeAuth's login.
-function sameSecret(candidate: string, configured: string): boolean {
-  if (candidate.length !== configured.length) return false;
-  let difference = 0;
-  for (let i = 0; i < candidate.length; i++) {
-    difference |= candidate.charCodeAt(i) ^ configured.charCodeAt(i);
-  }
-  return difference === 0;
+  if (!isAdminPasscode(passcode)) throw new ConvexError(WRONG_PASSCODE);
 }
 
 export const generateUploadUrl = mutation({

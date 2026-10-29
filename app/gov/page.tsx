@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import AgencyList from "@/components/gov/AgencyList";
 import { api } from "@/convex/_generated/api";
-import { ACTIVE_CITY } from "@/convex/lib/city";
+import { ACTIVE_CITY } from "@/server/lib/city";
 
 // The triage dashboard (§5.5.1): public, read-only and unlinked, with no tab bar, like /fix
 // (§3.1.3). Counts update live through the Convex subscription.

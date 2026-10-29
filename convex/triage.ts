@@ -1,6 +1,6 @@
 import { query } from "./_generated/server";
 import { PUBLIC_STATUSES } from "./lib/publicReport";
-import { ROUTING } from "./lib/routing";
+import { ROUTING } from "../server/lib/routing";
 import { triageOverview, type TriageGroup } from "./lib/triageGroups";
 
 // The triage dashboard's overview (§5.5.1): every agency in the active routing table with

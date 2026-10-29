@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { OWNER_CHIP } from "@/convex/lib/routing";
+import { OWNER_CHIP } from "@/server/lib/routing";
 import type { TriageGroup } from "@/convex/lib/triageGroups";
 
 // /gov's overview (§5.5.1): every agency with its open and fixed counts, in the order the

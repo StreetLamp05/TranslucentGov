@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { afterEach, expect, test, vi } from "vitest";
 import { internal } from "../../convex/_generated/api";
-import { SCREENING_FAILED_REASON } from "../../convex/lib/screening";
+import { SCREENING_FAILED_REASON } from "../../server/lib/screening";
 import schema from "../../convex/schema";
 import { modules } from "./setup";
 

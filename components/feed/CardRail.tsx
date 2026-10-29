@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { neighborCanConfirm } from "@/convex/lib/fixRules";
+import { neighborCanConfirm } from "@/server/lib/fixRules";
 import type { PublicReport } from "@/convex/lib/publicReport";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 import type { FeedSlotProps } from "./FeedCard";

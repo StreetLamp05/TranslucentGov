@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { isPublicStatus, PUBLIC_STATUSES } from "./lib/publicReport";
-import { ROUTING } from "./lib/routing";
+import { ROUTING } from "../server/lib/routing";
 import { agencyForSlug, groupFor, triageQueue, type QueueRow, type TriageQueue } from "./lib/triageGroups";
 
 // One agency's queue on the triage dashboard (§5.5.2): its open reports ranked by me-toos,

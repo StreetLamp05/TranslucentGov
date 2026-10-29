@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { boundingBox, haversineMeters, inBox, NEARBY_METERS } from "../../../convex/lib/geo";
+import { boundingBox, haversineMeters, inBox, NEARBY_METERS } from "../../../server/lib/geo";
 
 // Mableton, GA (~33.8°N).
 const MABLETON = { lat: 33.8187, lng: -84.5824 };

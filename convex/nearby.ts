@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server";
-import { boundingBox, haversineMeters, NEARBY_METERS } from "./lib/geo";
+import { boundingBox, haversineMeters, NEARBY_METERS } from "../server/lib/geo";
 import { findResident } from "./lib/auth";
 import { publicReport, type PublicReport } from "./lib/publicReport";
 

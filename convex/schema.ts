@@ -1,9 +1,12 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { categoryValidator, ownerValidator } from "./lib/routing";
+import { CATEGORIES, OWNERS } from "../server/lib/routing";
 
 // The full GovTok schema (§2.1.1). US5 is the only card that edits this file, so
 // feature cards can run in parallel. Fields that aren't known until screening are optional.
+
+export const categoryValidator = v.union(...CATEGORIES.map((c) => v.literal(c)));
+export const ownerValidator = v.union(...OWNERS.map((o) => v.literal(o)));
 
 export const mediaTypeValidator = v.union(v.literal("video"), v.literal("photos"));
 

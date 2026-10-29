@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { ACTIVE_CITY, MABLETON, SAN_FRANCISCO } from "../../../convex/lib/city";
-import { CATEGORIES, OWNER_CHIP, OWNERS, routeCategory } from "../../../convex/lib/routing";
+import { ACTIVE_CITY, MABLETON, SAN_FRANCISCO } from "../../../server/lib/city";
+import { CATEGORIES, OWNER_CHIP, OWNERS, routeCategory } from "../../../server/lib/routing";
 
 // Each city's §2.1.2 table, restated by hand so a typo in a profile fails here.
 const TABLES = {

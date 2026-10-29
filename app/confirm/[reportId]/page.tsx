@@ -7,7 +7,7 @@ import { useState } from "react";
 import FixCapture from "@/components/fix/FixCapture";
 import { OwnerChip } from "@/components/fix/FixerList";
 import { api } from "@/convex/_generated/api";
-import { CITY_ONLY, neighborCanConfirm } from "@/convex/lib/fixRules";
+import { CITY_ONLY, neighborCanConfirm } from "@/server/lib/fixRules";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 
 // "Is it fixed?" from a feed card (§4.3.2): a neighbor films the proof of fix for a report the

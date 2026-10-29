@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { neighborCanConfirm } from "@/convex/lib/fixRules";
+import { neighborCanConfirm } from "@/server/lib/fixRules";
 import type { FeedSlotProps } from "./FeedCard";
 
 // "Is it fixed?" on open cards the city doesn't own (§4.3.2, §5.1.1): any resident can film a

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import CardActions from "../../../components/feed/CardActions";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { PublicReport } from "../../../convex/lib/publicReport";
-import type { Owner } from "../../../convex/lib/routing";
+import type { Owner } from "../../../server/lib/routing";
 
 function report(owner: Owner, status: PublicReport["status"] = "open"): PublicReport {
   return {

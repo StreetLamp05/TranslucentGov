@@ -7,7 +7,7 @@ import {
   type Part,
   type Schema,
 } from "@google/genai";
-import { MAX_CLIP_BYTES } from "./clipLimit";
+import { MAX_CLIP_BYTES } from "../../server/lib/clipLimit";
 import { blobToBase64, callGeminiJSON, geminiClient, GeminiError, geminiRequestError } from "./gemini";
 
 // The clip's speech as text (§1.1.4), for screening (§1.1.3) and captions (§5.1.1). Gemini

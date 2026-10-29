@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { ROUTING, type Category } from "../../convex/lib/routing";
+import { ROUTING, type Category } from "../../server/lib/routing";
 import schema from "../../convex/schema";
 import { modules } from "./setup";
 

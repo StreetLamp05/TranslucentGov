@@ -6,7 +6,7 @@ import type { CaptureMode } from "../../../components/capture/CameraCapture";
 import type { RecordedClip } from "../../../lib/hooks/useClipRecorder";
 import type { OwnerReport } from "../../../convex/lib/publicReport";
 import MeReportCard, { reportStatusText } from "../../../components/me/MeReportCard";
-import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../convex/lib/screening";
+import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../server/lib/screening";
 
 const NOW = 10 * 86_400_000;
 

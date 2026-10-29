@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { haversineMeters, type Point } from "../../convex/lib/geo";
+import { haversineMeters, type Point } from "../../server/lib/geo";
 import type { PublicReport } from "../../convex/lib/publicReport";
-import { OWNER_CHIP } from "../../convex/lib/routing";
+import { OWNER_CHIP } from "../../server/lib/routing";
 import { daysLabel, daysOpen } from "../../lib/days";
 import { useCurrentLocation } from "../../lib/hooks/useCurrentLocation";
 

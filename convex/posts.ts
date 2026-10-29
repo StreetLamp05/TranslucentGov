@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { findResident, getOrCreateResident } from "./lib/auth";
-import { MAX_DESCRIPTION_LENGTH } from "./lib/postLimits";
+import { MAX_DESCRIPTION_LENGTH } from "../server/lib/postLimits";
 import { checkPostMedia } from "./lib/postMedia";
 import { ownerReport } from "./lib/publicReport";
 import { mediaTypeValidator } from "./schema";

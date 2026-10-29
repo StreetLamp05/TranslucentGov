@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../convex/lib/screening";
+import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../server/lib/screening";
 import schema from "../../convex/schema";
 import { modules } from "./setup";
 

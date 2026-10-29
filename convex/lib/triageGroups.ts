@@ -1,5 +1,5 @@
 import type { Id } from "../_generated/dataModel";
-import { CATEGORIES, type Category, type Owner } from "./routing";
+import { CATEGORIES, type Category, type Owner } from "../../server/lib/routing";
 
 // The triage dashboard's groups (§5.5). A report's group is its category's agency in the
 // active routing table, worked out at query time rather than read from the stored `agency`,

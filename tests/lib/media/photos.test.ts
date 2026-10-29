@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { MAX_PHOTOS } from "../../../convex/lib/postLimits";
+import { MAX_PHOTOS } from "../../../server/lib/postLimits";
 import { frameSize } from "../../../lib/media/frames";
 import { isHeic, keepPhotos } from "../../../lib/media/photos";
 

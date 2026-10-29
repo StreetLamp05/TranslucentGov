@@ -8,7 +8,7 @@ import type { RecordedClip } from "../../../lib/hooks/useClipRecorder";
 import CheckingScreen, { Retake, ScreeningFailed } from "../../../components/post/CheckingScreen";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { OwnerReport } from "../../../convex/lib/publicReport";
-import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../convex/lib/screening";
+import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../server/lib/screening";
 
 const state = vi.hoisted(() => ({
   report: undefined as unknown,

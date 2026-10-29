@@ -3,10 +3,10 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { findResident, getOrCreateResident, requireFixer } from "./lib/auth";
-import { MAX_CLIP_BYTES } from "./lib/clipLimit";
-import { CITY_ONLY, neighborCanConfirm, tooFarMessage } from "./lib/fixRules";
-import { haversineMeters, NEARBY_METERS } from "./lib/geo";
-import { CLIP_TOO_BIG, MAX_VIDEO_FRAMES } from "./lib/postLimits";
+import { MAX_CLIP_BYTES } from "../server/lib/clipLimit";
+import { CITY_ONLY, neighborCanConfirm, tooFarMessage } from "../server/lib/fixRules";
+import { haversineMeters, NEARBY_METERS } from "../server/lib/geo";
+import { CLIP_TOO_BIG, MAX_VIDEO_FRAMES } from "../server/lib/postLimits";
 
 // Proof of fix (§4.3.1, §4.3.2): files are uploaded first (files.generateUploadUrl), then
 // submitFix saves the attempt as `checking` and starts verifyFix (US22), which closes the
