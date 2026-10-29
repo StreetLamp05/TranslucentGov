@@ -29,13 +29,9 @@ export function reportStatusText(report: OwnerReport | PublicReport, now: number
   return statusText({ status: report.status, createdAt: report.createdAt, fixedAt: report.fixedAt }, now);
 }
 
-// CheckingScreen still types its report with Convex's Id-typed OwnerReport until US35 ports it.
-// The shapes match apart from the `_id` brand, so the held card casts; drop the cast then.
-type CheckingReport = Parameters<typeof Retake>[0]["report"];
-
 export default function MeReportCard({ report, now, token = null, isMeToo = false, onPostAnother }: Props) {
   const fixed = report.status === "fixed";
-  const held = report.status === "held" ? (report as CheckingReport) : null;
+  const held = report.status === "held" ? (report as OwnerReport) : null;
   const publicReport = report.status === "open" || fixed;
   const status = reportStatusText(report, now);
   const [playing, setPlaying] = useState(false);

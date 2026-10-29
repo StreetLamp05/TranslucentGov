@@ -1,12 +1,13 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import FixCapture from "@/components/fix/FixCapture";
 import { OwnerChip } from "@/components/fix/FixerList";
-import { api } from "@/convex/_generated/api";
+import { query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
+import type { PublicReport } from "@/server/lib/publicReport";
 import { CITY_ONLY, neighborCanConfirm } from "@/server/lib/fixRules";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 
@@ -15,7 +16,10 @@ import { useResidentToken } from "@/lib/hooks/useResidentToken";
 export default function ConfirmFixPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const token = useResidentToken();
-  const report = useQuery(api.feed.reportById, { id: reportId });
+  // null once the report isn't open or fixed (or never existed); undefined while loading.
+  const report = useLive(`report:${reportId}`, (signal) =>
+    query<PublicReport | null>(`/api/feed/${encodeURIComponent(reportId)}`, undefined, { signal }),
+  );
   const [started, setStarted] = useState(false);
 
   if (report === undefined || !token) return <Message text="Loading…" />;
@@ -43,7 +47,7 @@ export default function ConfirmFixPage() {
       </p>
       <div className="mt-4 flex gap-3">
         {poster && (
-          // Convex storage URLs, so next/image's remote config doesn't apply.
+          // MinIO URLs, so next/image's remote config doesn't apply.
           // eslint-disable-next-line @next/next/no-img-element
           <img src={poster} alt="The original report" className="h-28 w-20 shrink-0 rounded-lg bg-black object-cover" />
         )}

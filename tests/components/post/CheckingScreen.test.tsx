@@ -1,35 +1,44 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { getFunctionName, type FunctionReference } from "convex/server";
-import { ConvexError } from "convex/values";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { ApiError } from "../../../lib/data/api";
+import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from "vitest";
 import type { CaptureMode } from "../../../components/capture/CameraCapture";
 import type { RecordedClip } from "../../../lib/hooks/useClipRecorder";
 import CheckingScreen, { Retake, ScreeningFailed } from "../../../components/post/CheckingScreen";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { OwnerReport } from "../../../convex/lib/publicReport";
+import type { OwnerReport } from "../../../server/lib/publicReport";
 import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../server/lib/screening";
 
 const state = vi.hoisted(() => ({
   report: undefined as unknown,
   queryArgs: [] as unknown[],
-  mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
+  mutations: {} as Record<string, Mock<(body: unknown) => unknown>>,
   uploads: [] as Blob[],
+  intervals: [] as (number | undefined)[],
 }));
 
-vi.mock("convex/react", () => ({
-  useQuery: (_ref: unknown, args: unknown) => {
-    state.queryArgs.push(args);
-    return args === "skip" ? undefined : state.report;
+// Identity rides in headers (lib/data/api.ts), so the calls carry no token. `useLive` is replaced by
+// a synchronous stand-in that runs the fetcher once and returns the test's report; the real hook's
+// polling is covered in CheckingScreenPolling.test.tsx.
+vi.mock("../../../lib/data/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/data/api")>()),
+  query: async (path: string, args: unknown) => {
+    state.queryArgs.push({ path, args });
   },
-  useMutation: (ref: FunctionReference<"mutation">) => {
-    const name = getFunctionName(ref);
-    return (state.mutations[name] ??= vi.fn());
+  mutate: async (path: string, body: unknown) => (state.mutations[path] ??= vi.fn())(body),
+}));
+vi.mock("../../../lib/data/useLive", () => ({
+  LIVE_STATUS_MS: 2_000,
+  LIVE_LIST_MS: 10_000,
+  useLive: (key: string | null, fetcher: (signal: AbortSignal) => Promise<unknown>, options: { intervalMs?: number }) => {
+    state.intervals.push(options.intervalMs);
+    if (key === null) return undefined;
+    void fetcher(new AbortController().signal);
+    return state.report;
   },
 }));
 vi.mock("../../../lib/hooks/useResidentToken", () => ({ useResidentToken: () => "token-a" }));
 vi.mock("../../../lib/upload", () => ({
-  uploadFile: vi.fn(async (blob: Blob) => {
+  uploadMedia: vi.fn(async (blob: Blob) => {
     state.uploads.push(blob);
     return `storage-${state.uploads.length}`;
   }),
@@ -64,7 +73,7 @@ const CLIP: RecordedClip = {
 };
 const PHOTOS = Array.from({ length: 2 }, (_, i) => new Blob([`photo ${i}`], { type: "image/jpeg" }));
 
-const REPORT_ID = "report-1" as Id<"reports">;
+const REPORT_ID = "report-1";
 
 // What myReport returns for the poster (OwnerReport), trimmed to what the screen reads.
 function fixture(fields: Partial<OwnerReport>): OwnerReport {
@@ -88,8 +97,8 @@ function fixture(fields: Partial<OwnerReport>): OwnerReport {
   };
 }
 
-const retakeReport = () => (state.mutations["retake:retakeReport"] ??= vi.fn());
-const retryScreening = () => (state.mutations["retake:retryScreening"] ??= vi.fn());
+const retakeReport = () => (state.mutations["/api/retake"] ??= vi.fn());
+const retryScreening = () => (state.mutations["/api/retake/retry"] ??= vi.fn());
 
 const onPostAnother = vi.fn();
 function show(report: unknown) {
@@ -105,16 +114,18 @@ beforeEach(() => {
   state.queryArgs = [];
   state.mutations = {};
   state.uploads = [];
+  state.intervals = [];
   cameraProps.length = 0;
   onPostAnother.mockReset();
 });
 afterEach(cleanup);
 
 describe("CheckingScreen", () => {
-  test("subscribes to the poster's report and shows Checking… while it loads or is pending", () => {
+  test("polls the poster's report every ~2s and shows Checking… while it loads or is pending", () => {
     const view = show(undefined);
     expect(heading()).toBe("Checking…");
-    expect(state.queryArgs.at(-1)).toEqual({ token: "token-a", reportId: REPORT_ID });
+    expect(state.queryArgs.at(-1)).toEqual({ path: "/api/posts/mine", args: { reportId: REPORT_ID } });
+    expect(state.intervals.at(-1)).toBe(2_000);
     state.report = fixture({ status: "pending" });
     view.rerender(<CheckingScreen reportId={REPORT_ID} onPostAnother={onPostAnother} />);
     expect(heading()).toBe("Checking…");
@@ -202,8 +213,8 @@ describe("CheckingScreen", () => {
 
       expect(state.uploads).toHaveLength(7);
       expect(retakeReport()).toHaveBeenCalledTimes(1);
-      const args = retakeReport().mock.calls[0][0];
-      expect(args).toMatchObject({ token: "token-a", reportId: REPORT_ID, mediaType: "video" });
+      const args = retakeReport().mock.calls[0][0] as { clipStorageId: string; frameStorageIds: string[] };
+      expect(args).toMatchObject({ reportId: REPORT_ID, mediaType: "video" });
       expect([args.clipStorageId, ...args.frameStorageIds].sort()).toEqual(
         Array.from({ length: 7 }, (_, i) => `storage-${i + 1}`).sort(),
       );
@@ -220,7 +231,6 @@ describe("CheckingScreen", () => {
 
       expect(state.uploads).toEqual(PHOTOS);
       expect(retakeReport().mock.calls[0][0]).toEqual({
-        token: "token-a",
         reportId: REPORT_ID,
         mediaType: "photos",
         clipStorageId: undefined,
@@ -239,7 +249,7 @@ describe("CheckingScreen", () => {
     });
 
     test("a server error shows its message on the reason screen, and Retake is offered again", async () => {
-      retakeReport().mockRejectedValue(new ConvexError("This post can't be retaken."));
+      retakeReport().mockRejectedValue(new ApiError(400, "This post can't be retaken."));
       show(fixture({ verdict: "retake", reason: "A face is visible." }));
       fireEvent.click(button("Retake")!);
       await act(async () => fireEvent.click(screen.getByText("fake record")));
@@ -314,7 +324,7 @@ describe("CheckingScreen", () => {
       retryScreening().mockResolvedValue(null);
       show(failed());
       await act(async () => fireEvent.click(button("Try again")!));
-      expect(retryScreening()).toHaveBeenCalledWith({ token: "token-a", reportId: REPORT_ID });
+      expect(retryScreening()).toHaveBeenCalledWith({ reportId: REPORT_ID });
     });
 
     test("a failed Try again shows an error and can be tapped again", async () => {

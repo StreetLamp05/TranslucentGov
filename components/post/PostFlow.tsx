@@ -1,26 +1,25 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import CameraCapture from "@/components/capture/CameraCapture";
 import LocationPicker from "@/components/map/LocationPicker";
 import NearbyCheck from "@/components/post/NearbyCheck";
-import { api } from "@/convex/_generated/api";
+import { ApiError, mutate, query } from "@/lib/data/api";
+import { LIVE_LIST_MS, useLive } from "@/lib/data/useLive";
 import { ACTIVE_CITY } from "@/server/lib/city";
-import type { Id } from "@/convex/_generated/dataModel";
+import type { NearbySuggestion } from "@/server/nearby";
 import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
 import { CLIP_TOO_BIG, MAX_DESCRIPTION_LENGTH } from "@/server/lib/postLimits";
 import type { LatLng } from "@/lib/demo";
 import type { RecordedClip } from "@/lib/hooks/useClipRecorder";
 import { useCurrentLocation, type LocationState } from "@/lib/hooks/useCurrentLocation";
-import { getResidentToken, useResidentToken } from "@/lib/hooks/useResidentToken";
-import { uploadFile } from "@/lib/upload";
+import { useResidentToken } from "@/lib/hooks/useResidentToken";
+import { uploadMedia } from "@/lib/upload";
 import CheckingScreen from "./CheckingScreen";
 
 // Posting (§4.1.1): location → full-screen camera (video or photos) → preview + optional description → Submit → Checking….
-// Each file is uploaded to Convex storage, then createReport saves the report as pending.
+// Each file is uploaded to MinIO, then createReport saves the report as pending.
 
 // What's being posted, with object URLs for the preview and the location it was captured at.
 type Draft =
@@ -38,23 +37,22 @@ export default function PostFlow() {
   const router = useRouter();
   const location = useCurrentLocation();
   const residentToken = useResidentToken();
-  const createReport = useMutation(api.posts.createReport);
   const [mode, setMode] = useState<Mode>("video");
   const [selectedPoint, setSelectedPoint] = useState<LatLng | null>(null);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [choosingLocation, setChoosingLocation] = useState(false);
-  const nearbyReports = useQuery(
-    api.nearby.nearbyOpen,
-    locationConfirmed && selectedPoint && residentToken
-      ? { lat: selectedPoint.lat, lng: selectedPoint.lng, token: residentToken }
-      : "skip",
+  const nearbyReports = useLive(
+    locationConfirmed && selectedPoint && residentToken ? `nearby:${selectedPoint.lat},${selectedPoint.lng}` : null,
+    (signal) =>
+      query<NearbySuggestion[]>("/api/nearby", { lat: selectedPoint?.lat, lng: selectedPoint?.lng }, { signal }),
+    { intervalMs: LIVE_LIST_MS },
   );
   const [draft, setDraft] = useState<Draft | null>(null);
   const [continueToCapture, setContinueToCapture] = useState(false);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [reportId, setReportId] = useState<Id<"reports"> | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
 
   // Revoke the preview URLs when the draft is replaced or the page unmounts.
@@ -116,22 +114,22 @@ export default function PostFlow() {
     setError(null);
     try {
       const { lat, lng } = point;
-      const report = { token: getResidentToken(), description: description.trim() || undefined, lat, lng };
-      let id: Id<"reports">;
+      const report = { description: description.trim() || undefined, lat, lng };
+      let id: string;
       if (draft.kind === "photos") {
         // A slideshow's photos go where a video's frames would (§2.1.1), and there's no clip.
-        const frameStorageIds = await Promise.all(draft.photos.map((photo) => uploadFile(photo)));
-        id = await createReport({ ...report, mediaType: "photos", frameStorageIds });
+        const frameStorageIds = await Promise.all(draft.photos.map((photo) => uploadMedia(photo)));
+        id = await mutate<string>("/api/posts", { ...report, mediaType: "photos", frameStorageIds });
       } else {
         const [clipStorageId, frameStorageIds] = await Promise.all([
-          uploadFile(draft.clip.blob),
-          Promise.all(draft.clip.frames.map((frame) => uploadFile(frame))),
+          uploadMedia(draft.clip.blob),
+          Promise.all(draft.clip.frames.map((frame) => uploadMedia(frame))),
         ]);
-        id = await createReport({ ...report, mediaType: "video", clipStorageId, frameStorageIds });
+        id = await mutate<string>("/api/posts", { ...report, mediaType: "video", clipStorageId, frameStorageIds });
       }
       setReportId(id);
     } catch (err) {
-      setError(err instanceof ConvexError && typeof err.data === "string" ? err.data : SUBMIT_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : SUBMIT_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -178,7 +176,6 @@ export default function PostFlow() {
       return (
         <NearbyCheck
           reports={nearbyReports}
-          token={residentToken}
           now={now}
           onContinue={() => setContinueToCapture(true)}
         />

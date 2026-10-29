@@ -1,45 +1,35 @@
 "use client";
 
-import { ConvexError } from "convex/values";
-import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import { ApiError, mutate } from "@/lib/data/api";
+import type { NearbySuggestion } from "@/server/nearby";
 import { daysLabel, daysOpen } from "@/lib/days";
 
-export type NearbyReport = {
-  report: PublicReport;
-  distanceMeters: number;
-  isMine: boolean;
-};
+export type NearbyReport = NearbySuggestion;
 
 export default function NearbyCheck({
   reports,
-  token,
   now,
   onContinue,
 }: {
   reports: NearbyReport[];
-  token: string;
   now: number;
   onContinue: () => void;
 }) {
-  const meToo = useMutation(api.meToos.meToo);
   const router = useRouter();
-  const [pendingReportId, setPendingReportId] = useState<Id<"reports"> | null>(null);
+  const [pendingReportId, setPendingReportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function addMeToo(reportId: Id<"reports">) {
+  async function addMeToo(reportId: string) {
     if (pendingReportId) return;
     setPendingReportId(reportId);
     setError(null);
     try {
-      await meToo({ token, reportId });
+      await mutate("/api/me-too", { reportId });
       router.push(`/?report=${reportId}`);
     } catch (err) {
-      setError(err instanceof ConvexError && typeof err.data === "string" ? err.data : "Couldn't add your me-too. Try again.");
+      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : "Couldn't add your me-too. Try again.");
     } finally {
       setPendingReportId(null);
     }
@@ -91,7 +81,7 @@ export default function NearbyCheck({
 
 function Thumbnail({ url, title }: { url: string | null; title: string }) {
   if (!url) return <div aria-hidden="true" className="size-16 shrink-0 rounded-xl bg-[#E7E9E0]" />;
-  // Convex storage URLs are not configured for next/image.
+  // MinIO URLs are not configured for next/image.
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt="" title={title} className="size-16 shrink-0 rounded-lg object-cover" />;
 }
