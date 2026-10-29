@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { api } from "@/convex/_generated/api";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
+import { query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
 import { useDemoMode } from "@/lib/hooks/useDemoMode";
 import FeedCard from "./FeedCard";
@@ -19,8 +19,10 @@ const VISIBLE = 0.6;
  * first. The order is snapshotted on mount; remount the feed (a new key) to re-sort it.
  */
 export default function Feed({ firstId }: { firstId?: string }) {
-  const live = useQuery(api.feed.feed);
-  const pinned = useQuery(api.feed.reportById, firstId ? { id: firstId } : "skip");
+  const live = useLive("feed", (signal) => query<PublicReport[]>("/api/feed", {}, { signal }));
+  const pinned = useLive(firstId ? `feed:${firstId}` : null, (signal) =>
+    query<PublicReport | null>(`/api/feed/${encodeURIComponent(firstId!)}`, {}, { signal }),
+  );
   const reports = useFeedSnapshot(live, firstId ? pinned : null);
   const count = reports?.length ?? 0;
 
@@ -89,8 +91,8 @@ export default function Feed({ firstId }: { firstId?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videos, slotKey]);
 
-  // Only the card on screen plays. Bandwidth: only the next card preloads (Convex's free file
-  // bandwidth is small); the previous one was already loaded on the way down.
+  // Only the card on screen plays. Bandwidth: only the next card preloads (MinIO serves
+  // from the homelab's uplink); the previous one was already loaded on the way down.
   useEffect(() => {
     videos.forEach((el, slot) => {
       const k = slots[slot];
@@ -184,7 +186,7 @@ function play(el: HTMLVideoElement) {
  * Freezes the feed's order on first load so cards don't move under the user's finger
  * (§5.1.2), while each card still shows its live data (counts, status). `pinned` goes first
  * (undefined while it loads, null for none). A card that drops out of the live top 50 keeps
- * its last copy rather than vanishing.
+ * its last copy rather than vanishing. A report that turns public later is added at the end.
  */
 export function useFeedSnapshot(
   live: PublicReport[] | undefined,
@@ -203,7 +205,11 @@ export function useFeedSnapshot(
     setSnapshot(order);
     return order;
   }
-  return snapshot.map((r) => latest.get(r._id) ?? r);
+  // A report approved after the feed opened (a poll brings it in) joins at the end, so nothing
+  // shifts under the user's finger. Reopening the feed puts it where its activity says.
+  const seen = new Set(snapshot.map((r) => r._id));
+  const arrivals = (live ?? []).filter((r) => !seen.has(r._id));
+  return [...snapshot.map((r) => latest.get(r._id) ?? r), ...arrivals];
 }
 
 function FeedMessage({ frame, children }: { frame: string; children: string }) {

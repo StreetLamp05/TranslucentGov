@@ -1,4 +1,4 @@
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
 import CardActions from "./CardActions";
 import CardOverlay from "./CardOverlay";
 import CardRail from "./CardRail";

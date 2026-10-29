@@ -1,5 +1,5 @@
 import type { Marker, Renderer } from "@googlemaps/markerclusterer";
-import type { MapReport } from "../../convex/map";
+import type { MapReport } from "../../server/map";
 import { clusterBubble } from "./bubble";
 import { clusterColor, clusterCount } from "./counts";
 

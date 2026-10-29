@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { MapReport } from "../../../convex/map";
+import type { MapReport } from "../../../server/map";
 
 // Google Maps can't load in jsdom, so markers render as buttons named by their title.
 vi.mock("@vis.gl/react-google-maps", () => ({
@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 let reports: MapReport[] | undefined;
-vi.mock("convex/react", () => ({ useQuery: () => reports }));
+vi.mock("../../../lib/data/useLive", () => ({ useLive: () => reports }));
 
 const { default: MapScreen } = await import("../../../components/map/MapScreen");
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useState, useSyncExternalStore } from "react";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
 import { OWNER_CHIP } from "@/server/lib/routing";
 import { captionAt } from "@/lib/captions";
 import { daysLabel, daysOpen } from "@/lib/days";

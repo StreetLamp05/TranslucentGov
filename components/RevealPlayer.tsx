@@ -1,12 +1,10 @@
 "use client";
 
-import { useMutation } from "convex/react";
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { fixedLine } from "@/components/feed/CardOverlay";
 import Slideshow from "@/components/feed/Slideshow";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
+import { mutate } from "@/lib/data/api";
 import { daysLabel, daysOpen } from "@/lib/days";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
 
@@ -288,8 +286,8 @@ function markSeen(key: string, on: boolean) {
 
 /** Calls `record` the first time it's asked for a report this session. Retries later if it fails. */
 export function recordRevealViewOnce(
-  reportId: Id<"reports">,
-  record: (args: { reportId: Id<"reports"> }) => Promise<unknown>,
+  reportId: string,
+  record: (args: { reportId: string }) => Promise<unknown>,
 ): void {
   const key = SEEN_KEY + reportId;
   if (seen(key)) return;
@@ -297,8 +295,9 @@ export function recordRevealViewOnce(
   record({ reportId }).catch(() => markSeen(key, false));
 }
 
-/** `recordRevealViewOnce` bound to the `recordRevealView` mutation. */
-export function useRecordRevealView(): (reportId: Id<"reports">) => void {
-  const record = useMutation(api.reveal.recordRevealView);
-  return useCallback((reportId: Id<"reports">) => recordRevealViewOnce(reportId, record), [record]);
+const record = (args: { reportId: string }) => mutate("/api/reveal", args);
+
+/** `recordRevealViewOnce` bound to POST /api/reveal. */
+export function useRecordRevealView(): (reportId: string) => void {
+  return useCallback((reportId: string) => recordRevealViewOnce(reportId, record), []);
 }

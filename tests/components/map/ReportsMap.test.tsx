@@ -3,7 +3,7 @@ import type { Marker, Renderer } from "@googlemaps/markerclusterer";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { type ReactNode, StrictMode, useLayoutEffect, useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import type { MapReport } from "../../../convex/map";
+import type { MapReport } from "../../../server/map";
 import { DEMO_VALUE } from "../../../lib/demo";
 
 // A fake map and clusterer that record what ReportsMap does with them. Markers are plain

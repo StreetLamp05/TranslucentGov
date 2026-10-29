@@ -3,7 +3,7 @@
 import { MarkerClusterer, type Marker } from "@googlemaps/markerclusterer";
 import { AdvancedMarker, APIProvider, Map as GoogleMap, useMap } from "@vis.gl/react-google-maps";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MapReport } from "../../convex/map";
+import type { MapReport } from "../../server/map";
 import { ACTIVE_CITY } from "../../server/lib/city";
 import { DEMO_POINT, type LatLng } from "../../lib/demo";
 import { useCurrentLocation } from "../../lib/hooks/useCurrentLocation";
