@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 import { DEMO_POINT, DEMO_VALUE } from "../../../lib/demo";
 
 const DAY_MS = 86_400_000;
@@ -11,7 +10,7 @@ const LAT_PER_100M = 0.0009;
 
 function report(title: string, metersNorth: number, overrides: Partial<PublicReport> = {}): PublicReport {
   return {
-    _id: title as Id<"reports">,
+    _id: title,
     _creationTime: 0,
     mediaType: "video",
     lat: DEMO_POINT.lat + (metersNorth / 100) * LAT_PER_100M,
