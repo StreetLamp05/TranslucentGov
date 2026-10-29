@@ -1,7 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { MABLETON, SAN_FRANCISCO } from "../../../convex/lib/city";
 import { CATEGORIES, type Category } from "../../../convex/lib/routing";
-import { agencyGroups, agencySlug, groupFor, triageOverview } from "../../../convex/lib/triageGroups";
+import type { Id } from "../../../convex/_generated/dataModel";
+import {
+  agencyForSlug,
+  agencyGroups,
+  agencySlug,
+  groupFor,
+  triageOverview,
+  triageQueue,
+  type QueueRow,
+} from "../../../convex/lib/triageGroups";
 
 const CITIES = { sf: SAN_FRANCISCO, mableton: MABLETON };
 
@@ -71,4 +80,55 @@ test("the group comes from the table passed in, not a stored agency; a missing c
   expect(groupFor(MABLETON.routing, "trash_missed")).toBe("Mableton Sanitation");
   expect(groupFor(SAN_FRANCISCO.routing, "trash_missed")).toBe("Recology");
   expect(groupFor(MABLETON.routing, undefined)).toBe("Routing unclear");
+});
+
+describe("triageQueue", () => {
+  const row = (id: string, overrides: Partial<QueueRow>): QueueRow => ({
+    _id: id as Id<"reports">,
+    title: id,
+    category: "trash_missed",
+    status: "open",
+    meTooCount: 0,
+    createdAt: 1,
+    isSample: false,
+    thumbnailUrl: null,
+    ...overrides,
+  });
+
+  test("open rows rank by me-toos, the older first on a tie; fixed rows newest fix first", () => {
+    const queue = triageQueue(MABLETON.routing, "mableton-sanitation", [
+      row("few", { meTooCount: 1, createdAt: 5 }),
+      row("many", { meTooCount: 9, createdAt: 9 }),
+      row("tie-newer", { meTooCount: 4, createdAt: 8 }),
+      row("tie-older", { meTooCount: 4, createdAt: 2 }),
+      row("fixed-old", { status: "fixed", fixedAt: 10 }),
+      row("fixed-new", { status: "fixed", fixedAt: 30 }),
+    ]);
+    expect(queue?.open.map((r) => r._id)).toEqual(["many", "tie-older", "tie-newer", "few"]);
+    expect(queue?.fixed.map((r) => r._id)).toEqual(["fixed-new", "fixed-old"]);
+    expect(queue).toMatchObject({ agency: "Mableton Sanitation", owner: "city" });
+  });
+
+  test("rows whose category maps to another agency are left out", () => {
+    const queue = triageQueue(MABLETON.routing, "cobb-dot", [
+      row("pothole", { category: "pothole" }),
+      row("signal", { category: "signal_sign" }),
+      row("trash", { category: "trash_missed" }),
+    ]);
+    expect(queue?.open.map((r) => r._id).sort()).toEqual(["pothole", "signal"]);
+  });
+
+  test("other reports appear under the Routing unclear slug", () => {
+    const queue = triageQueue(SAN_FRANCISCO.routing, "routing-unclear", [
+      row("other", { category: "other" }),
+      row("pothole", { category: "pothole" }),
+    ]);
+    expect(queue?.open.map((r) => r._id)).toEqual(["other"]);
+  });
+
+  test("an unknown slug returns null", () => {
+    expect(triageQueue(MABLETON.routing, "no-such-agency", [])).toBeNull();
+    expect(agencyForSlug(MABLETON.routing, "recology")).toBeNull();
+    expect(agencyForSlug(SAN_FRANCISCO.routing, "recology")?.agency).toBe("Recology");
+  });
 });

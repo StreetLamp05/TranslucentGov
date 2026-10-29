@@ -46,6 +46,7 @@ import type * as screeningDb from "../screeningDb.js";
 import type * as seed from "../seed.js";
 import type * as stats from "../stats.js";
 import type * as triage from "../triage.js";
+import type * as triageGroup from "../triageGroup.js";
 import type * as videoIntake from "../videoIntake.js";
 import type * as videoIntakeAuth from "../videoIntakeAuth.js";
 import type * as videoIntakeDb from "../videoIntakeDb.js";
@@ -95,6 +96,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   stats: typeof stats;
   triage: typeof triage;
+  triageGroup: typeof triageGroup;
   videoIntake: typeof videoIntake;
   videoIntakeAuth: typeof videoIntakeAuth;
   videoIntakeDb: typeof videoIntakeDb;

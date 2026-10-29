@@ -1,9 +1,11 @@
+import type { Id } from "../_generated/dataModel";
 import { CATEGORIES, type Category, type Owner } from "./routing";
 
 // The triage dashboard's groups (§5.5). A report's group is its category's agency in the
 // active routing table, worked out at query time rather than read from the stored `agency`,
 // so a corrected table row moves every past report with it (§2.1.4). The table is passed in
-// so both city profiles can be tested. No server imports, so client code can use it.
+// so both city profiles can be tested. No server imports (only the `Id` type), so client
+// code can use it. The Postgres port (US44) swaps that type when `convex/` goes away.
 
 export type RoutingTable = Record<Category, { owner: Owner; agency: string }>;
 
@@ -56,4 +58,42 @@ export function triageOverview(
   return agencyGroups(routing)
     .map(({ agency, owner, slug }) => ({ agency, owner, slug, ...counts.get(agency)! }))
     .sort((a, b) => Number(a.agency === unrouted) - Number(b.agency === unrouted) || b.open - a.open);
+}
+
+export function agencyForSlug(routing: RoutingTable, slug: string): AgencyGroup | null {
+  return agencyGroups(routing).find((g) => g.slug === slug) ?? null;
+}
+
+// One row of a group's queue (§5.5.2). An allowlist like the map's: no transcript, segments,
+// description, poster, tokens or fixer identity (§3.1.3, §7.1.1).
+export type QueueRow = {
+  _id: Id<"reports">;
+  title?: string;
+  street?: string;
+  category?: Category;
+  status: "open" | "fixed";
+  meTooCount: number;
+  createdAt: number;
+  fixedAt?: number;
+  isSample: boolean;
+  thumbnailUrl: string | null;
+};
+
+export type TriageQueue = { agency: string; owner: Owner; open: QueueRow[]; fixed: QueueRow[] };
+
+// A group's queue, or null for a slug that isn't an agency in this table. Open reports are
+// ranked by how many neighbors flagged them (1 + me-toos), the oldest first on a tie; fixed
+// ones newest first, so ownership shows as results (§5.5.2).
+export function triageQueue(routing: RoutingTable, slug: string, rows: readonly QueueRow[]): TriageQueue | null {
+  const group = agencyForSlug(routing, slug);
+  if (!group) return null;
+  const mine = rows.filter((row) => groupFor(routing, row.category) === group.agency);
+  return {
+    agency: group.agency,
+    owner: group.owner,
+    open: mine
+      .filter((row) => row.status === "open")
+      .sort((a, b) => b.meTooCount - a.meTooCount || a.createdAt - b.createdAt),
+    fixed: mine.filter((row) => row.status === "fixed").sort((a, b) => (b.fixedAt ?? 0) - (a.fixedAt ?? 0)),
+  };
 }
