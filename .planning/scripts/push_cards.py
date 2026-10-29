@@ -1,13 +1,15 @@
-"""Push .planning/M0-issues.json to GitHub: issues, sub-issue links, blocked_by links, manifest.
+"""Push a .planning/<milestone>-issues.json to GitHub: issues, sub-issue links, blocked_by links, manifest.
+
+Usage: push_cards.py <repo-root> [plan-file, default .planning/M0-issues.json]. The repo comes from the plan's
+"repo" key (default StreetLamp05/GovTok, for the original M0 plan).
 
 Idempotent: anything already in .planning/manifest.json (keyed by tempId) is skipped.
 Project-board steps live in a separate script (needs the `project` token scope).
 """
 import json, subprocess, sys, time, tempfile, os
 
-REPO = "StreetLamp05/GovTok"
 ROOT = sys.argv[1]
-PLAN = os.path.join(ROOT, ".planning/M0-issues.json")
+PLAN = os.path.join(ROOT, sys.argv[2] if len(sys.argv) > 2 else ".planning/M0-issues.json")
 MANIFEST = os.path.join(ROOT, ".planning/manifest.json")
 BATCH, PAUSE = 20, 20
 
@@ -21,6 +23,7 @@ def gh(*args, input_json=None):
 
 
 plan = json.load(open(PLAN))
+REPO = plan.get("repo", "StreetLamp05/GovTok")
 manifest = json.load(open(MANIFEST))
 gen = manifest.setdefault("generated", {})
 milestone = plan["milestone"]

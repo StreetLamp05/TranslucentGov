@@ -13,7 +13,7 @@ Fans out a batch of cards to parallel `run-card` sessions. Each runner is a **se
 Constants (IDs come from `.planning/project-fields.json`, never hardcoded here):
 - No cap on stories in flight. Every Todo story that's independent of the others and of what's already in flight gets dispatched (the user's call, 2026-10-24).
 - tmux session `gt-cards`, one window per card named by card ID.
-- Worktrees at `../GovTok-worktrees/<CardID>` (outside the repo, so root `eslint .` / `git status` never see them).
+- Worktrees at `../TranslucentGov-worktrees/<CardID>` (outside the repo, so root `eslint .` / `git status` never see them).
 - Assignee = claim. Two people work this board, and an assigned card belongs to its assignee. The dispatcher is `gh api user --jq .login` (`StreetLamp05` for David). Every dispatched story gets assigned to them (step 6), and cards assigned to anyone else are never picked.
 
 ## 1. Preflight — stop and tell the user if any fails
@@ -24,17 +24,17 @@ Constants (IDs come from `.planning/project-fields.json`, never hardcoded here):
 
 ## 2. List what's in flight
 
-`gh project item-list 16 --owner StreetLamp05 --format json --limit 500` (keep the output — item IDs are needed in step 6).
+`gh project item-list 19 --owner StreetLamp05 --format json --limit 500` (keep the output — item IDs are needed in step 6).
 
 User stories are items whose title matches `^US\d+:` — match on the title, not the `user-story` label, since some cards are missing labels. Collect the stories in **In Development or Testing**. They don't limit how many cards start, but new picks must not conflict with them (step 4).
 
 ## 3. Build the candidate list
 
-Todo user stories, ordered by milestone (earliest due first), then issue number. For each, `gh issue view <n> -R StreetLamp05/GovTok --json number,title,body,parent,milestone,assignees`. Drop and record a reason for:
+Todo user stories, ordered by milestone (earliest due first), then issue number. For each, `gh issue view <n> -R StreetLamp05/TranslucentGov --json number,title,body,parent,milestone,assignees`. Drop and record a reason for:
 
 - **Claimed by someone else**: `assignees` includes anyone other than the dispatcher. Unassigned cards and cards already assigned to the dispatcher stay in.
 - **Not agent-doable** — the ACs are actions only the user can take (submitting an external application, clicking through a third-party console, purchasing something).
-- **Open blocker** — `gh api repos/StreetLamp05/GovTok/issues/<n>/dependencies/blocked_by` returns any `open` issue.
+- **Open blocker** — `gh api repos/StreetLamp05/TranslucentGov/issues/<n>/dependencies/blocked_by` returns any `open` issue.
 
 ## 4. Check independence
 
@@ -57,7 +57,7 @@ Candidates that conflict with an in-flight story are out. From the rest, greedil
 First claim each picked story, right before moving it. Re-read its assignees, because the partner may have claimed it while step 5 waited. If someone else now holds it, drop it, tell the user, and don't create its worktree. Otherwise:
 
 ```bash
-gh issue edit <n> --add-assignee @me -R StreetLamp05/GovTok
+gh issue edit <n> --add-assignee @me -R StreetLamp05/TranslucentGov
 ```
 
 Only stories get assigned. Parent Features stay unassigned, since both people work under them.
@@ -77,10 +77,10 @@ Run this from the main checkout, for each card:
 
 ```bash
 branch="<CardID>-<kebab-title>"   # repo convention: ID first, title lowercased, non-alphanumerics → '-', e.g. US19-build-table-view-ui
-gh issue develop <n> --list -R StreetLamp05/GovTok   # if a linked branch already exists, skip the next line and
+gh issue develop <n> --list -R StreetLamp05/TranslucentGov   # if a linked branch already exists, skip the next line and
                                                           # instead: git fetch origin <it> && git worktree add <path> <it>
 gh issue develop <n> --name "$branch" --base main --checkout \
-  --worktree "../GovTok-worktrees/<CardID>" -R StreetLamp05/GovTok
+  --worktree "../TranslucentGov-worktrees/<CardID>" -R StreetLamp05/TranslucentGov
 ```
 
 The main checkout stays on whatever branch it's on.
@@ -108,4 +108,4 @@ Use the `--remote-control=<name>` form: the flag takes an optional value, so a s
 A table with card ID, title, branch, worktree path, and tmux window, plus the skipped cards and their reasons. Then the user's next steps:
 - `tmux attach -t gt-cards` (or open the named session in the Claude app). On a first launch in a new worktree directory, a runner may wait at the folder-trust prompt until the user accepts it.
 - Each runner pings its own question or result, and commits nothing — the user commits from inside each worktree.
-- After the PR merges: `git worktree remove ../GovTok-worktrees/<CardID>`.
+- After the PR merges: `git worktree remove ../TranslucentGov-worktrees/<CardID>`.

@@ -2,7 +2,7 @@
 
 ## Source of truth
 - `GOVTOK_DECISIONS.md` is the design spec. Every locked decision lives there. Read its **Session state / handoff** block first when resuming.
-- GitHub Project #16 (owner `StreetLamp05`, https://github.com/users/StreetLamp05/projects/16) is the execution board. Issues are the **work slice** of the spec, not a restatement of it (see the translation rule below).
+- GitHub Project #19 (owner `StreetLamp05`, https://github.com/users/StreetLamp05/projects/19) is the execution board. Issues are the **work slice** of the spec, not a restatement of it (see the translation rule below).
 - Stack (spec §1.1.1): Next.js (App Router) on Vercel, with Convex for the database, file storage, live updates, and server actions that call Claude.
 
 ## Card hierarchy
@@ -38,14 +38,14 @@ A human confirms all of these:
 1. **One spec section and one milestone per generation run.** Only generate cards for **locked** spec sections. Check that the queue item is struck (✓) in `GOVTOK_DECISIONS.md`.
 2. **Write before you push.** Put proposed cards in `.planning/<milestone>-issues.json` for human review. Create real issues only in a separate, explicit step after approval.
 3. **Check `.planning/manifest.json` first.** Skip any `Spec §` already listed there. After pushing, append `{specSection, issueNumber}` entries.
-4. **Read field/option IDs from `.planning/project-fields.json`.** If the board changes, regenerate it with `gh project field-list 16 --owner StreetLamp05 --format json`.
+4. **Read field/option IDs from `.planning/project-fields.json`.** If the board changes, regenerate it with `gh project field-list 19 --owner StreetLamp05 --format json`.
 5. **Push in batches of about 20,** with a short pause between batches, to stay under GitHub's secondary rate limit.
 
 ## Command reference
 ```bash
-gh issue create --title "F1: ..." --body-file .planning/tmp-body.md --label feature --milestone "M0: Cal Hacks submission" -R StreetLamp05/GovTok
-gh issue create --title "US1: ..." --body-file .planning/tmp-body.md --label user-story --parent <F-issue-number> --milestone "M0: Cal Hacks submission" -R StreetLamp05/GovTok
-gh project item-add 16 --owner StreetLamp05 --url <issue-url>
+gh issue create --title "F1: ..." --body-file .planning/tmp-body.md --label feature --milestone "M1: Mableton demo day" -R StreetLamp05/TranslucentGov
+gh issue create --title "US1: ..." --body-file .planning/tmp-body.md --label user-story --parent <F-issue-number> --milestone "M1: Mableton demo day" -R StreetLamp05/TranslucentGov
+gh project item-add 19 --owner StreetLamp05 --url <issue-url>
 # Field edits: IDs come from .planning/project-fields.json
 gh project item-edit --id <item-id> --project-id <project.id> --field-id <fields["Spec §"].id> --text "§1.1.1"
 gh project item-edit --id <item-id> --project-id <project.id> --field-id <fields.Status.id> --single-select-option-id <fields.Status.options.Refinement>

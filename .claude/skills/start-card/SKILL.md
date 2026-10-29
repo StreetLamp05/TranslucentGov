@@ -15,17 +15,17 @@ Ramp-up sequence for beginning (or resuming) work on a GovTok card. Run every st
 - If an issue number or branch-style slug was passed as an argument, use that.
 - Otherwise, use the current git branch (`git branch --show-current`) — branches are named after their card per CLAUDE.md's "Create a branch" convention (e.g. `US3-upload-a-video-to-convex-storage`). Extract the card ID (`US3`) from it.
 - If the branch doesn't look like a card branch (e.g. `main`, or an unrelated name), ask the user which card they mean rather than guessing.
-- Claim it. Two people work this board, and the assignee owns the card. Check `gh issue view <n> -R StreetLamp05/GovTok --json assignees`. If it's assigned to someone other than you (`gh api user --jq .login`), stop and ask the user before doing anything, because their partner is likely already on it. If it's unassigned, run `gh issue edit <n> --add-assignee @me -R StreetLamp05/GovTok`. `dispatch-cards` has usually done this already.
+- Claim it. Two people work this board, and the assignee owns the card. Check `gh issue view <n> -R StreetLamp05/TranslucentGov --json assignees`. If it's assigned to someone other than you (`gh api user --jq .login`), stop and ask the user before doing anything, because their partner is likely already on it. If it's unassigned, run `gh issue edit <n> --add-assignee @me -R StreetLamp05/TranslucentGov`. `dispatch-cards` has usually done this already.
 - If no branch exists yet for the card being started, create one — but **match this repo's naming convention exactly**: `<CardID>-<kebab-case-title>` (e.g. `US19-build-table-view-ui`), card ID first, title lowercased. `gh issue develop <issue-number> --checkout --name "<CardID>-<kebab-title>` based off of up-to-date main.
 
 ## 2. Read the card itself
 
-- `gh issue list -R StreetLamp05/GovTok --search "<ID> in:title" --state all --json number,title,body,parent` to get the issue body (acceptance criteria) and its parent Feature.
+- `gh issue list -R StreetLamp05/TranslucentGov --search "<ID> in:title" --state all --json number,title,body,parent` to get the issue body (acceptance criteria) and its parent Feature.
 - Also pull the parent Feature issue's body for the "Children: ..." list — this tells you the card's siblings (already-done and still-open) without having to guess dependency order.
 
 ## 3. Read the spec
 
-- Find the card's `Spec §` reference (in the issue body, or via `gh project item-list 16 --owner StreetLamp05 --format json` cross-referenced by issue number if not stated on the issue itself).
+- Find the card's `Spec §` reference (in the issue body, or via `gh project item-list 19 --owner StreetLamp05 --format json` cross-referenced by issue number if not stated on the issue itself).
 - Read that section of `GOVTOK_DECISIONS.md` in full — not just the referenced bullet, enough surrounding context (the whole numbered subsection) to catch adjacent constraints.
 
 ## 4. Read related/prior work

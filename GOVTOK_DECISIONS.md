@@ -7,7 +7,8 @@ Updated incrementally as decisions are locked in.
 - **Status:** ✅ **SPEC COMPLETE (Level 2, 2026-10-24).** Every item for tonight's build is decided, and the consistency sweep is resolved. No forward references are open. One known gap (2026-10-25): slurs aren't yet in US12's title rule (§4.2.1).
 - **Last completed:** retcons for text descriptions, photo slideshow posts and the private Me page (§4.1.1, §5.4.1). Build decisions from US25 are recorded in §6.1.1, §6.2.1 and §8 (2026-10-25).
 - **City switch (2026-10-25, US25, user decision):** the Cal Hacks demo runs as **San Francisco**, live at the Palace of Fine Arts. This reverses §6.1.1's rejected "Bay Area as a second city". `ACTIVE_CITY` in `convex/lib/city.ts` sets the routing (§2.1.2), the Claude prompts, the map, `DEMO_POINT` and the seed presets. Oct 30 flips it back to Mableton. See §6.1.1 "City profile".
-- **Next up:** build. The M0 cards are in `.planning/M0-issues.json` (28 stories, reviewed), waiting for the user to push them to Project #16. Branches are tested on a laptop; phone checks happen after merge on prod.
+- **M1 stack switch (2026-10-28, user decision):** this repo, TranslucentGov, is a fork of GovTok aimed at the **Georgia 311 Challenge Demo Day** (Fri 2026-10-30, 9am ET, Morehouse). Mableton Mayor Michael Owens and the judges attend, and top projects may go to the city for a pilot. AI moves to **Gemini** (§1.1.3, §1.1.4), and the backend moves from Convex to a **self-hosted docker-compose stack** of Postgres, MinIO, a pg-boss worker, Next.js and Caddy (§1.1.1). Other sections that say "Convex action / query / storage / scheduler" now mean worker job / route handler / MinIO / pg-boss; the behavior they describe is unchanged.
+- **Next up:** build M1. The cards are F9 + US31–US41 on Project #19 (draft: `.planning/M1-issues.json`). Cut line: if US40 (remove Convex) hasn't merged by Thu 2026-10-29 evening ET, demo on Convex + Gemini.
 - **Moved to server (2026-10-24):** work continues on `miraii` at `~/projects/GovTok` (moved from `~/GovTok` 2026-10-24; symlink left behind), using `claude --remote-control` inside tmux. The original conversation was on the laptop; this doc plus memory is the only carried-over context.
 - **Context the doc doesn't hold:**
   - Cal Hacks submissions are due Sunday morning, 2 people.
@@ -83,42 +84,47 @@ Updated incrementally as decisions are locked in.
 
 ### 1.1 Platform
 
-**1.1.1 App stack — Next.js on Vercel + Convex**
-- Frontend: Next.js (App Router), deployed on Vercel (Hobby). It must be an HTTPS deploy, because phones only allow camera access on HTTPS sites.
-- Backend: Convex provides:
-  - the database
-  - file storage for videos
-  - live updates (the feed and map subscribe to queries)
-  - server-side actions that call Claude, so the API key never reaches the browser
-- Uploads: Convex upload URLs (generate a URL → POST the file → save the storage ID). No size cap, but the POST times out after 2 minutes. Clips stay small (§4.1.1).
-- Location queries: bounding-box filters in Convex queries. No geo index needed at Mableton's scale.
-- Rationale: the fewest moving parts for a live video feed by Sunday morning with 2 people. A fresh repo means nothing to migrate, and it adds a shot at Convex's $5k prize.
+**1.1.1 App stack — self-hosted docker compose: Next.js + Postgres + MinIO + pg-boss** *(retcon 2026-10-28, M1, user decision; replaces Vercel + Convex)*
+- One `docker-compose.yml` runs the whole app on a single server. For Oct 30 that's a friend's homelab (SSH access, on a UPS), reached over HTTPS through Cloudflare Tunnel or a port-forward (US41). A small city IT team can run it themselves, which is the pilot story for the Georgia 311 Challenge (top projects "may be delivered to the city for a potential pilot").
+  - `app`: Next.js (App Router), `output: "standalone"`. Route handlers under `app/api/` replace Convex queries and mutations. Server code lives in `server/`.
+  - `postgres`: the database, through Drizzle ORM. Migrations are in `drizzle/`.
+  - `minio`: S3-compatible file storage for videos and photos.
+  - `worker`: pg-boss jobs (queued on the same Postgres). These replace Convex actions, `scheduler.runAfter`, and the daily cron. Screening, fix verification, transcription and purge run here, so the Gemini key never reaches the browser.
+  - `caddy`: HTTPS in front of the app. It must be HTTPS because phones only allow camera access on HTTPS sites. Locally it uses `tls internal`, and on the server a real domain.
+- Uploads: the browser PUTs to a presigned MinIO URL and then saves the object key. Videos are read through presigned GET URLs. Clips stay small (§4.1.1).
+- Live updates: interval polling replaces Convex subscriptions. The hook is `useLive`, which also refetches on window focus and right after a mutation. Status screens (Checking…, fix verdict) poll about every 2s, and the feed and map about every 10s.
+- Location queries: bounding-box filters in SQL. No PostGIS needed at Mableton's scale.
+- Tests: server tests run on PGlite (in-process Postgres) with the Drizzle migrations, so worktrees and CI need no Docker. Each worktree gets its own database and bucket in the shared local stack.
+- Rationale: Cal Hacks is over, so Convex's prize no longer matters. A city pilot needs a stack the city can own, with no per-developer SaaS. Every part is a common open-source building block.
 - Rejected:
-  - Supabase: familiar Postgres plus PostGIS, but more setup tonight and no prize.
-  - Firebase: a nod to Google for Oct 30, but storage on new projects needs a billing account, and location queries need workarounds.
-  - Flask/FastAPI + Postgres + S3: most familiar, but too much plumbing for 18 hours.
-- Cost:
-  - Convex free tier: 1M function calls/month, 0.5 GiB database storage, 1 GiB/month database bandwidth. File storage and file bandwidth are about 1 GB each according to third-party listings; the official page doesn't state them.
-  - Convex Pro: $25 per developer per month.
-  - Vercel Hobby: free.
-- 📌 **Forward reference (§8)**: video bandwidth at pilot scale. The free tier may not last through the Mableton test week.
+  - Keep Convex: fastest path to Oct 30, but city IT can't easily self-host it. It stays as the fallback until US40 merges (cut line).
+  - Supabase self-hosted: realtime built in, but about 10 containers and still no job runner.
+  - PocketBase: the smallest footprint, but SQLite plus a niche framework is a harder sell for a city pilot.
+  - Vercel frontend + self-hosted DB: two deploy targets, and it isn't fully self-hostable.
+- Cost: one machine (the homelab for the demo). Storage and bandwidth are whatever it has. No per-seat fees.
+- *(Superseded 2026-10-28: Next.js on Vercel (Hobby) + Convex for the database, file storage, live queries and Claude-calling actions, chosen for the fewest moving parts at Cal Hacks and a shot at Convex's $5k prize.)*
 
 **1.1.2 Map library — Google Maps**
 - Google Maps JavaScript API, wrapped with `@vis.gl/react-google-maps`. Clustering comes from `@googlemaps/markerclusterer`.
-- Street names for cards come from reverse geocoding (Geocoding API) on the same key. Run it once per report in a Convex action and store the result.
+- Street names for cards come from reverse geocoding (Geocoding API) on the same key. Run it once per report in the screening job (§1.1.1) and store the result.
   - (2026-10-25, US13) The street is the `route` component's short name ("Floyd Rd"), never a house number, because it's public (§7.1.1). A retry or rescreen reuses a stored street. If geocoding fails, the report has no street and screening carries on.
-- Setup: a Google Cloud billing account with a card on file. One browser key restricted to the Vercel domain and localhost. Reverse geocoding runs server-side with a second key restricted by API.
+- Setup: a Google Cloud billing account with a card on file. One browser key restricted to the app's domain and localhost. Reverse geocoding runs server-side with a second key restricted by API.
 - Rationale: a nod to Google at the Oct 30 event, a polished look on phones, and one account for both the map and the address.
 - Rejected:
   - Mapbox: kept as the fallback if no one can get a card on Google Cloud.
   - Leaflet + OSM: looks dated, and OSM's public tiles aren't meant for a pilot.
 - Cost: since March 2025 each SKU gets about 10k free calls a month (Dynamic Maps loads, Geocoding). Cal Hacks and the test week stay well under that.
 
-**1.1.3 Claude: model and input — Opus 5.5 (low effort), frames + transcript**
-- One Claude call per post, run in a Convex action. Model `claude-opus-5-5` at effort `low`, with structured JSON output. It does two jobs:
+**1.1.3 AI model and input — Gemini (Pro tier), frames + transcript** *(retcon 2026-10-28, M1, user decision; replaces Claude Opus 5.5)*
+- Elsewhere in this doc, "Claude" as the screening or fix-check model now means Gemini. "Claude Cowork" (wireframes) and Claude as the build tool are unchanged.
+- One Gemini call per post, run in the screening worker job (§1.1.1), through `@google/genai` with structured output (`responseSchema`). The model comes from `GEMINI_MODEL` (confirm the current Pro model ID at build time) and the key from `GEMINI_API_KEY`, in server env only. It does two jobs:
   - Screening (the policy is §4.2.1).
-  - Filling in the card: category and a short title. The owner is looked up from the category in a fixed table (§2.1.2), not chosen by Claude.
-  - The same call shape will check proof-of-fix later (§4.3.1).
+  - Filling in the card: category and a short title. The owner is looked up from the category in a fixed table (§2.1.2), not chosen by the model.
+  - The same call shape checks proof-of-fix (§4.3.1).
+- The `callGeminiJSON` wrapper keeps the old contract and the error kinds the callers branch on. Safety blocks map to `refusal` (which holds the report), 429 to `rate_limited` (retried), and the rest to `max_tokens` / `bad_output` / `api`.
+- Rationale: Gemini gives a Google-native story for a GDG audience, and one vendor covers screening, fix checks and transcription (§1.1.4). The eval scripts (`scripts/eval-screening.ts`, `scripts/eval-fix.ts`) have to show no regression on face/plate holds and emergency cases before the switch counts as done.
+- 📌 **Deferred (§8)**: Gemini takes video and audio directly, so the browser frames plus a separate transcript could become a single clip upload. M1 keeps frames + transcript to avoid changing the posting flow before Oct 30.
+- *(Superseded 2026-10-28: Claude Opus 5.5 at effort `low` in a Convex action. The original reasoning and costs follow; the input list still applies.)*
 - Input:
   - About 6 evenly spaced frames. The browser grabs them with a canvas, 1280px or less on the long edge.
   - The transcript of the clip's audio (engine: §1.1.4). Videos only.
@@ -138,7 +144,12 @@ Updated incrementally as decisions are locked in.
 - 📌 **Forward reference (§5.1.1)**: the transcript can double as burned-in captions on the card.
 - 📌 **Forward reference (§4.3.1)**: proof-of-fix is "no commentary" (Scope). Decide whether fix clips are muted or narration is just ignored.
 
-**1.1.4 Speech-to-text engine — Groq Whisper large-v3-turbo**
+**1.1.4 Speech-to-text engine — Gemini** *(retcon 2026-10-28, M1, user decision; replaces Groq Whisper)*
+- The same Gemini client as §1.1.3 transcribes the clip's audio: inline for small clips, through the Files API for larger ones. It returns the same transcript-plus-segments shape the report stores today. It runs in the screening job for posted videos, and in an intake job for `/admin/video-intake`. `GROQ_API_KEY` is gone.
+- `MAX_CLIP_BYTES` stays at 25,000,000 as the product limit (§4.1.1), even though Groq's file cap no longer applies.
+- The transcript is still untrusted and possibly empty, same as before.
+- Rationale: one vendor and one key, the Google story for Oct 30, and the "Google STT, revisit for Oct 30" note below, resolved.
+- *(Superseded 2026-10-28: Groq Whisper large-v3-turbo. The original details follow.)*
 - Videos only; slideshows skip this step (§4.1.1). Transcription runs in the same Convex action as the Claude call (§1.1.3). The action reads the clip from Convex storage and POSTs it to Groq's OpenAI-compatible transcription endpoint (`whisper-large-v3-turbo`, `verbose_json` for segment timestamps). The transcript and its segments are saved on the report.
 - Groq accepts the browser's webm/mp4 directly, so there's no ffmpeg step. The free-tier file limit is about 25 MB, and clips stay well under it (§4.1.1).
   - (2026-10-25, US8) One limit everywhere: `MAX_CLIP_BYTES = 25,000,000` bytes (`convex/lib/clipLimit.ts`), used by posts, the admin intake and transcription. It's 25,000,000 rather than 25 MiB so a clip that passes our checks can't fail at Groq, whichever unit Groq means.

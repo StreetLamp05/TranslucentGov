@@ -1,56 +1,66 @@
 {
-  "_comment": "Cached GitHub Projects v2 field/option IDs for GovTok. Regenerate with: gh project field-list 16 --owner StreetLamp05 --format json. Do not hand-edit IDs.",
+  "_comment": "Cached GitHub Projects v2 field/option IDs for TranslucentGov (Project #19). Regenerate with: gh project field-list 19 --owner StreetLamp05 --format json. Do not hand-edit IDs.",
   "project": {
-    "number": 16,
+    "number": 19,
     "owner": "StreetLamp05",
-    "id": "PVT_kwHOBPSNSc4BolbV",
-    "url": "https://github.com/users/StreetLamp05/projects/16"
+    "id": "PVT_kwHOBPSNSc4BpM9b",
+    "url": "https://github.com/users/StreetLamp05/projects/19"
   },
   "fields": {
     "Status": {
-      "id": "PVTSSF_lAHOBPSNSc4BolbVzhnE2JA",
+      "id": "PVTSSF_lAHOBPSNSc4BpM9bzhnpoYw",
       "options": {
-        "Backlog": "767787a0",
-        "Refinement": "a2942f44",
-        "Todo": "f75ad846",
-        "In Development": "47fc9ee4",
-        "Testing": "b1819835",
-        "Deployed": "98236657",
-        "Soft Archive": "1d46e8a9"
+        "Backlog": "07964189",
+        "Refinement": "fdebf588",
+        "Todo": "397e2013",
+        "In Development": "d6f7520b",
+        "Testing": "69f1ca8e",
+        "Deployed": "d516d483",
+        "Soft Archive": "f075c764"
       }
     },
     "Area": {
-      "id": "PVTSSF_lAHOBPSNSc4BolbVzhnE2N4",
+      "id": "PVTSSF_lAHOBPSNSc4BpM9bzhnpyAI",
       "options": {
-        "web": "301ff1ed",
-        "convex": "92d8fe50",
-        "ai": "698d9455",
-        "infra": "e5225e19",
-        "docs": "f6b3186a"
+        "web": "98156b57",
+        "server": "afdb4d92",
+        "ai": "c0aaaf27",
+        "infra": "b5e08964",
+        "docs": "b16d62f3"
       }
     },
     "Size": {
-      "id": "PVTSSF_lAHOBPSNSc4BolbVzhnE2J4",
+      "id": "PVTSSF_lAHOBPSNSc4BpM9bzhnpol0",
       "options": {
-        "S": "92c716b2",
-        "M": "e8793834",
-        "L": "0acbba66"
+        "XS": "6c6483d2",
+        "S": "f784b110",
+        "M": "7515a9f1",
+        "L": "817d0097",
+        "XL": "db339eb2"
+      }
+    },
+    "Priority": {
+      "id": "PVTSSF_lAHOBPSNSc4BpM9bzhnpolw",
+      "options": {
+        "P0": "79628723",
+        "P1": "0a877460",
+        "P2": "da944a9c"
       }
     },
     "Spec §": {
-      "id": "PVTF_lAHOBPSNSc4BolbVzhnE2J8",
+      "id": "PVTF_lAHOBPSNSc4BpM9bzhnpx_M",
       "type": "text"
     },
     "Start date": {
-      "id": "PVTF_lAHOBPSNSc4BolbVzhnE2KA",
+      "id": "PVTF_lAHOBPSNSc4BpM9bzhnpol8",
       "type": "date"
     },
     "Target date": {
-      "id": "PVTF_lAHOBPSNSc4BolbVzhnE2KE",
+      "id": "PVTF_lAHOBPSNSc4BpM9bzhnpomA",
       "type": "date"
     },
     "Milestone": {
-      "id": "PVTF_lAHOBPSNSc4BolbVzhnE2JM",
+      "id": "PVTF_lAHOBPSNSc4BpM9bzhnpoY8",
       "type": "native"
     }
   }

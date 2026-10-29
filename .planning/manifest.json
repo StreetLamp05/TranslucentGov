@@ -463,6 +463,164 @@
       ],
       "itemId": "PVTI_lAHOBPSNSc4BolbVzhDUPXQ",
       "fieldsSet": true
+    },
+    "F9": {
+      "specSection": "§1.1.1",
+      "issueNumber": 1,
+      "issueId": 6089545289,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/1",
+      "title": "F9: Prep for GDG Presentation",
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl9Q",
+      "fieldsSet": true
+    },
+    "US31": {
+      "specSection": "§1.1.1, §4.2, §4.3",
+      "issueNumber": 2,
+      "issueId": 6089545756,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/2",
+      "title": "US31: Screen reports and verify fixes with Gemini",
+      "parentLinked": true,
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl-U",
+      "fieldsSet": true
+    },
+    "US32": {
+      "specSection": "§1.1.4",
+      "issueNumber": 3,
+      "issueId": 6089546373,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/3",
+      "title": "US32: Transcribe posted and intake videos with Gemini",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US31"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl-w",
+      "fieldsSet": true
+    },
+    "US33": {
+      "specSection": "§1.1.1",
+      "issueNumber": 4,
+      "issueId": 6089546864,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/4",
+      "title": "US33: Run the app, Postgres and MinIO with docker compose",
+      "parentLinked": true,
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl_E",
+      "fieldsSet": true
+    },
+    "US34": {
+      "specSection": "§1.1.1, §3.1",
+      "issueNumber": 5,
+      "issueId": 6089547405,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/5",
+      "title": "US34: Add the shared server layer and live-polling hook the ported screens use",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US33"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl_Q",
+      "fieldsSet": true
+    },
+    "US35": {
+      "specSection": "§4.1",
+      "issueNumber": 6,
+      "issueId": 6089547909,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/6",
+      "title": "US35: Post a report and tap Me too on Postgres",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US33",
+        "US34"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVl_w",
+      "fieldsSet": true
+    },
+    "US36": {
+      "specSection": "§4.2, §4.3",
+      "issueNumber": 7,
+      "issueId": 6089548509,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/7",
+      "title": "US36: Run Gemini screening and fix verification as worker jobs",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US31",
+        "US32",
+        "US33",
+        "US34"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmAU",
+      "fieldsSet": true
+    },
+    "US37": {
+      "specSection": "§5.1, §5.2, §5.4, §6.2",
+      "issueNumber": 8,
+      "issueId": 6089549128,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/8",
+      "title": "US37: Browse the feed, map and Me page from Postgres",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US33",
+        "US34"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmA0",
+      "fieldsSet": true
+    },
+    "US38": {
+      "specSection": "§4.3, §5.3",
+      "issueNumber": 9,
+      "issueId": 6089549897,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/9",
+      "title": "US38: Log in as a fixer and submit proof of fix on Postgres",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US33",
+        "US34"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmBM",
+      "fieldsSet": true
+    },
+    "US39": {
+      "specSection": "§6.1, §7.1",
+      "issueNumber": 10,
+      "issueId": 6089550371,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/10",
+      "title": "US39: Seed demo data, run video intake and purge nightly on Postgres",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US33",
+        "US34",
+        "US36"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmBg",
+      "fieldsSet": true
+    },
+    "US40": {
+      "specSection": "§1.1.1",
+      "issueNumber": 11,
+      "issueId": 6089550881,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/11",
+      "title": "US40: Remove Convex from the codebase",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US35",
+        "US36",
+        "US37",
+        "US38",
+        "US39"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmCI",
+      "fieldsSet": true
+    },
+    "US41": {
+      "specSection": "§6.1",
+      "issueNumber": 12,
+      "issueId": 6089551468,
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/12",
+      "title": "US41: Deploy to the homelab and rehearse the Mableton demo on a phone",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US40"
+      ],
+      "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmCc",
+      "fieldsSet": true
     }
   }
 }

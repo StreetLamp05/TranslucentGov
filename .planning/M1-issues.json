@@ -1,0 +1,214 @@
+{
+  "milestone": "M1: Mableton demo day",
+  "status": "PUSHED 2026-10-28 to StreetLamp05/TranslucentGov #1–#12, Project #19, all in Refinement. Issue numbers are in .planning/manifest.json.",
+  "repo": "StreetLamp05/TranslucentGov",
+  "project": 19,
+  "decisions": [
+    "AI: Gemini replaces Claude (screening, fix verification) and Groq Whisper (intake transcription). One vendor and one key.",
+    "Backend: a self-hostable docker-compose stack replaces Convex. Postgres with Drizzle, MinIO (S3-compatible) for video, pg-boss for scheduled jobs and the cron, Next.js standalone, and Caddy for HTTPS.",
+    "Live updates: interval polling (plus refetch on focus and after mutations) replaces Convex useQuery subscriptions.",
+    "Tests: server tests run on PGlite (in-process Postgres) with Drizzle migrations, so worktrees and CI need no Docker.",
+    "Hosting: the whole stack runs in docker-compose on one server (e.g. miraii), not Vercel. That's the city-pilot story: Mableton can run it themselves.",
+    "IDs continue from GovTok (F8 / US30) so cards don't clash with the GovTok issues already on board #19."
+  ],
+  "cutLine": "The Gemini track (US31, US32) is demo-critical and runs on the current Convex app, so it can merge today. The Postgres track replaces Convex only when US40 merges. Convex keeps working until then. If US40 isn't merged by Thu 2026-10-29 evening ET, demo on Convex + Gemini and present the compose stack (US33) as the pilot deployment path.",
+  "criticalPath": "US33 → US34 → {US35, US36, US37, US38 in parallel} → US39 (after US36) → US40 → US41",
+  "suggestedWaves": [
+    [
+      "US31",
+      "US33"
+    ],
+    [
+      "US32",
+      "US34"
+    ],
+    [
+      "US35",
+      "US36",
+      "US37",
+      "US38"
+    ],
+    [
+      "US39"
+    ],
+    [
+      "US40"
+    ],
+    [
+      "US41"
+    ]
+  ],
+  "conventions": [
+    "US33 is the only card that touches `server/db/schema.ts` or migrations. Domain cards (US35–US39) ask US33's schema for what they need, and any gap becomes a follow-up, not an edit.",
+    "Each domain card ports its Convex modules to `server/<domain>.ts` + `app/api/<domain>/…` route handlers with the same arguments and return shapes, swaps its components to `useLive` (US34), and ports its `tests/convex/*` tests to `tests/server/*` on PGlite. Leave `convex/` alone; US40 deletes it.",
+    "Domain cards enqueue jobs by name (`enqueue(\"screenReport\", …)`). US36 and US39 own the handlers, so posting and fix cards don't wait on them.",
+    "Every public read still goes through `publicReport` (§7.1.1), now at `server/lib/publicReport.ts`.",
+    "Card bodies split agent-verifiable acceptance criteria from a \"Manual test (human)\" section, same as M0."
+  ],
+  "features": [
+    {
+      "tempId": "F9",
+      "title": "F9: Prep for GDG Presentation",
+      "body": "Get the app ready for the Georgia 311 Challenge Demo Day: Fri 2026-10-30, 9am ET, at Morehouse, presenting to Mableton Mayor Michael Owens and the judges. Top projects may go to the city for a pilot (https://gdg.community.dev/events/details/google-gdg-on-campus-morehouse-college-atlanta-united-states-of-america-presents-georgia-311-challenge-2026/cohost-gdg-on-campus-university-of-georgia-athens-united-states/).\n\nTwo moves:\n1. **AI on Gemini.** Screening, fix verification and transcription all run on Gemini, which gives a Google-native story for a GDG audience and one vendor instead of two.\n2. **Self-hostable backend.** Replace Convex with a docker-compose stack (Postgres, MinIO, pg-boss worker, Next.js, Caddy) that a small city IT team could run themselves.\n\n**Cut line:** the Gemini track (US31, US32) is demo-critical and ships on the current Convex app. Convex is removed only when US40 merges. If that hasn't happened by Thu evening ET, demo on Convex + Gemini and show the compose stack as the pilot path.\n\nChildren: US31, US32, US33, US34, US35, US36, US37, US38, US39, US40, US41.",
+      "label": "feature",
+      "area": "infra",
+      "specSection": "§1.1.1",
+      "stories": [
+        {
+          "tempId": "US31",
+          "title": "US31: Screen reports and verify fixes with Gemini",
+          "body": "As a resident, when I post a report Gemini screens it, and when a fixer submits proof Gemini checks it, with the same verdicts the app gave on Claude.\n\nThis runs on the current Convex app and doesn't wait on the Postgres work.\n\nFiles this card owns: `convex/lib/gemini.ts` (new, replaces `convex/lib/claude.ts`), `convex/lib/screenPrompt.ts`, `convex/lib/fixPrompt.ts`, the import lines in `convex/screening.ts` and `convex/fixVerification.ts`, `tests/convex/lib/{claude→gemini,screenPrompt,fixPrompt}.test.ts`, `tests/convex/fixVerification.test.ts`, `scripts/eval-screening.ts`, `scripts/eval-fix.ts`, `scripts/try-screening.ts`, `scripts/convex-env.sh`, `.env.example`, `package.json`.\n\nAcceptance criteria (agent-verifiable):\n- [ ] `convex/lib/gemini.ts` exports `callGeminiJSON` with the same contract as `callClaudeJSON` (system prompt, text, and image parts in; parsed JSON out), built on `@google/genai` with structured output (`responseSchema`)\n- [ ] `GeminiError` keeps the error kinds the callers branch on: `refusal` (prompt or response blocked for safety), `max_tokens`, `bad_output`, `rate_limited` (HTTP 429), `api`\n- [ ] The model comes from `GEMINI_MODEL` with a default in code, and the key from `GEMINI_API_KEY`\n- [ ] `convex/lib/claude.ts` and `@anthropic-ai/sdk` are gone; `grep -ri anthropic convex app components lib scripts package.json` returns nothing\n- [ ] `scripts/convex-env.sh` and `.env.example` replace `ANTHROPIC_API_KEY` / `CLAUDE_MODEL` with `GEMINI_API_KEY` / `GEMINI_MODEL`\n- [ ] `scripts/eval-screening.ts` and `scripts/eval-fix.ts` run on Gemini. The PR lists their scores next to the last Claude run, with no regression on face/plate holds or emergency (Call 911) cases\n- [ ] Prompt and pipeline unit tests pass with the Gemini client mocked\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- Post a real clip on localhost, then a clip with a readable plate. The first goes live and the second is held.\n\nPriority: demo-critical.",
+          "area": "ai",
+          "size": "M",
+          "specSection": "§1.1.1, §4.2, §4.3",
+          "blockedBy": [],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US32",
+          "title": "US32: Transcribe posted and intake videos with Gemini",
+          "body": "As a resident, my narrated clip is transcribed by Gemini for screening, and as an admin I can transcribe intake videos the same way, with no Groq key configured.\n\n`convex/screening.ts` (posted videos) and `convex/videoIntake.ts` (admin intake) both call `transcribe()`, so keeping its signature means neither caller changes.\n\nFiles this card owns: `convex/lib/transcribe.ts`, `convex/lib/transcribe.test.ts`, `scripts/try-transcribe.ts`.\n\nAcceptance criteria (agent-verifiable):\n- [ ] `transcribe.ts` sends the video to Gemini, inline when small and through the Files API when over the inline limit, and returns the same shape as today (text plus timestamped segments, empty for silent clips)\n- [ ] It reuses the client and error kinds from `convex/lib/gemini.ts` (US31)\n- [ ] `GROQ_API_KEY` is removed from `scripts/convex-env.sh` and `.env.example`, and nothing references Groq or Whisper\n- [ ] `transcribe.test.ts` passes with Gemini mocked\n- [ ] `npx tsx scripts/try-transcribe.ts <fixture>` prints a transcript\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- Post a narrated clip on localhost and check that the stored transcript matches what was said. Do the same on `/admin/video-intake`.\n\nPriority: demo-critical.",
+          "area": "ai",
+          "size": "S",
+          "specSection": "§1.1.4",
+          "blockedBy": [
+            "US31"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US33",
+          "title": "US33: Run the app, Postgres and MinIO with docker compose",
+          "body": "As a city IT person, I can run `docker compose up` on a fresh clone and get the app, database, video storage and job worker running behind HTTPS.\n\nThis card only adds files. The Convex app keeps working until US40.\n\nFiles this card owns: `docker-compose.yml`, `Dockerfile`, `Caddyfile`, `drizzle.config.ts`, `drizzle/` (migrations), `server/db/schema.ts`, `server/db/index.ts`, `server/storage.ts`, `server/jobs.ts`, `worker/index.ts`, `tests/server/setup.ts`, `scripts/worktree-setup.sh`, `.env.example`, `README.md` (setup section). Nothing else touches `server/db/schema.ts` or migrations.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Compose services: `postgres` (named volume), `minio` (bucket created on boot), `app` (Next.js `output: \"standalone\"`), `worker` (pg-boss), and `caddy` (HTTPS: `tls internal` locally, a real domain through an env var)\n- [ ] The Drizzle schema ports all 7 tables from `convex/schema.ts` (reports, meToos, residents, fixers, fixAttempts, videoIntake, videoIntakeAdminSessions) with the same fields and indexes, and `npm run db:migrate` applies it\n- [ ] `server/storage.ts` provides a presigned PUT upload URL, a presigned GET URL, and delete, against MinIO\n- [ ] `server/jobs.ts` provides `enqueue(name, payload, { delaySeconds })` and `schedule(name, cron)` on pg-boss. `worker/index.ts` registers handlers from a name → handler map (empty to start)\n- [ ] Vitest runs `tests/server/**` on PGlite with migrations applied, one sample test passes, and no Docker is needed\n- [ ] `scripts/worktree-setup.sh` gives each worktree its own database and bucket in the shared local stack, replacing the per-worktree Convex deployment\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On a laptop, `docker compose up`, then open `https://localhost`. The app loads and the camera prompt appears.\n\nPriority: demo-critical for the self-host track.",
+          "area": "infra",
+          "size": "L",
+          "specSection": "§1.1.1",
+          "blockedBy": [],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US34",
+          "title": "US34: Add the shared server layer and live-polling hook the ported screens use",
+          "body": "As a resident, screens that updated live under Convex keep updating without a refresh on the new backend.\n\nThis card sets up the shared pieces so US35–US39 can run in parallel.\n\nFiles this card owns: `lib/data/useLive.ts`, `lib/data/api.ts`, `server/http.ts`, `server/lib/` (moved pure modules), `tests/lib/data/*`, `tests/server/http.test.ts`.\n\nAcceptance criteria (agent-verifiable):\n- [ ] `useLive(key, fetcher, { intervalMs })` returns `undefined` while loading (as `useQuery` does), refetches on an interval and on window focus, and refetches right after any `mutate()` from `lib/data/api.ts`\n- [ ] `lib/data/api.ts` sends the resident token (and the fixer or admin session) the way the Convex client does today\n- [ ] `server/http.ts` wraps route handlers: it resolves the caller's identity the same way `convex/lib/auth.ts` does, and maps errors to JSON with status codes\n- [ ] The pure modules move to `server/lib/` and `convex/` imports them from there, so Convex still builds: `city`, `geo`, `routing`, `publicReport`, `postLimits`, `postMedia`, `clipLimit`, `fixRules`, `screening`, `videoIntakeValidation`, `auth`. US31 and US32 own the prompt and AI modules, which stay put\n- [ ] Unit tests cover polling, refetch-after-mutate, and auth resolution\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nPriority: demo-critical for the self-host track.",
+          "area": "web",
+          "size": "S",
+          "specSection": "§1.1.1, §3.1",
+          "blockedBy": [
+            "US33"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US35",
+          "title": "US35: Post a report and tap Me too on Postgres",
+          "body": "As a resident, I can film or describe a problem, see open reports nearby, tap Me too, retake, and watch my report get checked, with the report in Postgres and its video in MinIO.\n\nPorts: `convex/posts.ts`, `files.ts`, `nearby.ts`, `meToos.ts`, `retake.ts`, `relation.ts`.\nFiles this card owns: `server/{posts,files,nearby,meToos,retake,relation}.ts`, `app/api/{posts,files,nearby,me-too,retake,relation}/`, `components/post/{PostFlow,NearbyCheck,CheckingScreen}.tsx`, `lib/upload.ts`, `app/confirm/[reportId]/page.tsx`, and their tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Each ported Convex function has a route handler with the same arguments and return shape\n- [ ] Uploads go browser → presigned MinIO PUT, and the clip size and post limits (`postLimits`, `clipLimit`) still apply\n- [ ] Creating or retaking a report enqueues `screenReport` (US36 owns the handler)\n- [ ] `CheckingScreen` polls every ~2s and shows the verdict without a refresh\n- [ ] The tests for `posts`, `nearby`, `meToos`, `retake` and `relation` are ported to `tests/server/` on PGlite and pass. Component tests pass against `useLive`\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On the compose stack, post a clip near an existing report, tap Me too, then post a new report and watch Checking… resolve.",
+          "area": "web",
+          "size": "L",
+          "specSection": "§4.1",
+          "blockedBy": [
+            "US33",
+            "US34"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US36",
+          "title": "US36: Run Gemini screening and fix verification as worker jobs",
+          "body": "As a resident, after I post, the worker screens my report with Gemini and it flips to live or held as before, retrying on its own when Gemini is rate-limited.\n\nPorts: `convex/screening.ts`, `screeningDb.ts`, `fixVerification.ts`, `fixVerificationDb.ts`, and `convex/lib/{gemini,screenPrompt,fixPrompt,transcribe}.ts` (after US31 and US32).\nFiles this card owns: `server/jobs/screenReport.ts`, `server/jobs/verifyFix.ts`, `server/lib/{gemini,screenPrompt,fixPrompt,transcribe}.ts`, the handler map in `worker/index.ts`, and their tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] The `screenReport` and `verifyFix` handlers are registered in the worker and read media from MinIO. `screenReport` transcribes posted videos with `server/lib/transcribe.ts`\n- [ ] Retry and backoff match the current `scheduler.runAfter` delays: rate-limited calls retry, refusals hold, and other failures are marked failed\n- [ ] The `screening` and `fixVerification` tests are ported to PGlite with Gemini mocked, and pass\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On the compose stack, post a clip and see the verdict. Stop the worker, post, then start it again: the report still gets screened.",
+          "area": "ai",
+          "size": "M",
+          "specSection": "§4.2, §4.3",
+          "blockedBy": [
+            "US31",
+            "US32",
+            "US33",
+            "US34"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US37",
+          "title": "US37: Browse the feed, map and Me page from Postgres",
+          "body": "As a resident, I can scroll the feed, open the map, play reveal videos and see my reports on the Me page, all served from Postgres and MinIO, and new reports show up without a refresh.\n\nPorts: `convex/feed.ts`, `map.ts`, `me.ts`, `reveal.ts`, `stats.ts`.\nFiles this card owns: `server/{feed,map,me,reveal,stats}.ts`, `app/api/{feed,map,me,reveal,stats}/`, `components/feed/{Feed,CardRail}.tsx`, `components/map/MapScreen.tsx`, `components/me/MePage.tsx`, `components/RevealPlayer.tsx`, and their tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Each ported query has a route handler with the same return shape, and every public read goes through `server/lib/publicReport.ts`\n- [ ] Video and thumbnail URLs are presigned MinIO GETs\n- [ ] The feed and map poll (about 10s) and pick up a newly approved report without a refresh\n- [ ] The tests for `feed`, `map`, `me`, `reveal` and `stats` are ported to PGlite and pass. Component tests pass against `useLive`\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On the compose stack, with the feed open in one tab, approve a report in another. It appears in the feed and on the map.",
+          "area": "web",
+          "size": "M",
+          "specSection": "§5.1, §5.2, §5.4, §6.2",
+          "blockedBy": [
+            "US33",
+            "US34"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US38",
+          "title": "US38: Log in as a fixer and submit proof of fix on Postgres",
+          "body": "As a fixer, I can log in with my passcode, see open reports, and submit a proof-of-fix video that gets checked, on the new backend.\n\nPorts: `convex/fixers.ts`, `fixes.ts`.\nFiles this card owns: `server/{fixers,fixes}.ts`, `app/api/{fixers,fixes}/`, `app/fix/page.tsx`, `app/fix/[reportId]/page.tsx`, `components/fix/*`, and their tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Passcode login, the open-reports list, the fixer's report view and fix submission each have a route handler with the same shape\n- [ ] Submitting a fix uploads to MinIO and enqueues `verifyFix` (US36 owns the handler)\n- [ ] The fix screen polls and shows the verdict without a refresh\n- [ ] The `fixers` and `fixes` tests are ported to PGlite and pass. `FixerList` and `FixCapture` component tests pass\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On the compose stack, log in as a fixer, submit proof on a report, and see the verdict and the reveal in the feed.",
+          "area": "web",
+          "size": "M",
+          "specSection": "§4.3, §5.3",
+          "blockedBy": [
+            "US33",
+            "US34"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US39",
+          "title": "US39: Seed demo data, run video intake and purge nightly on Postgres",
+          "body": "As an admin, I can load the Mableton sample reports, upload intake videos for transcription, and trust that held reports are purged nightly, on the new backend.\n\nPorts: `convex/seed.ts`, `videoIntake.ts`, `videoIntakeDb.ts`, `videoIntakeAuth.ts`, `purge.ts`, `crons.ts`. Transcription reuses `server/lib/transcribe.ts` from US36.\nFiles this card owns: `server/{seed,videoIntake,purge}.ts`, `server/jobs/{transcribeVideo,purgeExpired}.ts`, `app/api/admin/`, `app/admin/seed/page.tsx`, `app/admin/video-intake/page.tsx`, and their tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Seeding loads the sample videos into MinIO and the reports into Postgres, and is safe to re-run\n- [ ] Admin login and sessions work as in `videoIntakeAuth.ts`\n- [ ] Intake transcription runs as a worker job on Gemini\n- [ ] The `purgeExpired` jobs (reports and intake) are scheduled on pg-boss (daily, 10:00 UTC). They delete held reports and unverified fix attempts older than 7 days, plus their MinIO objects (§7.1.1)\n- [ ] The tests for `seed`, `purge` and `videoIntake` are ported to PGlite and pass\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human):\n- On the compose stack, seed from `/admin/seed`, check that the feed fills, and upload a clip on `/admin/video-intake`.",
+          "area": "infra",
+          "size": "M",
+          "specSection": "§6.1, §7.1",
+          "blockedBy": [
+            "US33",
+            "US34",
+            "US36"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US40",
+          "title": "US40: Remove Convex from the codebase",
+          "body": "As a developer, I can clone the repo and run everything with `docker compose up` and `npm test`, with no Convex account, CLI or deployment.\n\nFiles this card owns: `convex/` (deleted), `convex.json`, `app/ConvexClientProvider.tsx`, `app/layout.tsx` (provider removal), `scripts/{convex-env,vercel-build,with-node}.sh`, `vercel.json`, `package.json`, `README.md`, the stack line in `CLAUDE.md`.\n\nAcceptance criteria (agent-verifiable):\n- [ ] `convex/`, `convex.json`, `vercel.json` and the Convex scripts are deleted, and `convex` and `convex-test` are removed from `package.json`\n- [ ] `grep -ri convex app components lib server worker scripts package.json` returns nothing\n- [ ] The full test suite passes with no `tests/convex/` directory left\n- [ ] On a clean clone, `docker compose up` followed by seeding serves the feed\n- [ ] README and CLAUDE.md describe the compose stack\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nPriority: demo-critical for the self-host track (this is the cut-line card).",
+          "area": "infra",
+          "size": "S",
+          "specSection": "§1.1.1",
+          "blockedBy": [
+            "US35",
+            "US36",
+            "US37",
+            "US38",
+            "US39"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true
+        },
+        {
+          "tempId": "US41",
+          "title": "US41: Deploy to the homelab and rehearse the Mableton demo on a phone",
+          "body": "As the presenter, I can open the HTTPS deploy on my phone at Morehouse, post a report in Mableton, watch Gemini screen it, and see it on the feed and map, all served from the self-hosted homelab.\n\nTarget: a friend's homelab (SSH access, on a UPS). It's likely behind home NAT, so pick a public HTTPS path: Cloudflare Tunnel (no open ports, recommended) or a port-forward + DNS with Caddy getting the cert.\n\nAcceptance criteria:\n- [ ] The compose stack runs on the homelab with `restart: unless-stopped`, and comes back up by itself after a reboot\n- [ ] It's reachable from a phone on cellular data (not just the home LAN) at a real domain with a valid HTTPS cert, and the camera prompt appears\n- [ ] Postgres and MinIO data live on named volumes and survive `docker compose down && up`\n- [ ] A nightly `pg_dump` plus MinIO bucket copy lands somewhere off the compose volumes\n- [ ] `ACTIVE_CITY` is Mableton (§6.1.1 City profile)\n- [ ] Seeded with the Mableton sample reports\n- [ ] The demo script runs end to end on a phone twice: post → verdict → feed/map → fix → reveal\n- [ ] A fallback screen recording of the demo is saved\n\nIf US40 misses the cut line, run the same checklist on the Convex + Gemini deploy instead.\n\nPriority: demo-critical. Not agent-doable: a human runs this on the homelab.",
+          "area": "infra",
+          "size": "S",
+          "specSection": "§6.1",
+          "blockedBy": [
+            "US40"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": false
+        }
+      ]
+    }
+  ],
+  "openQuestions": [
+    "Model ID: confirm the current Gemini Pro model ID at build time (US31) instead of trusting a hardcoded default."
+  ]
+}

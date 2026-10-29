@@ -1,11 +1,13 @@
-"""Add the pushed M0 issues to Project #16 and set Status=Refinement, Area, Size, Spec §.
+"""Add pushed issues to the board in .planning/project-fields.json and set Status=Refinement, Area, Size, Spec §.
+
+Usage: board_cards.py <repo-root> [plan-file, default .planning/M0-issues.json].
 
 Needs the `project` token scope. Idempotent via manifest `itemId` / `fieldsSet`.
 """
 import json, subprocess, sys, os
 
 ROOT = sys.argv[1]
-plan = json.load(open(os.path.join(ROOT, ".planning/M0-issues.json")))
+plan = json.load(open(os.path.join(ROOT, sys.argv[2] if len(sys.argv) > 2 else ".planning/M0-issues.json")))
 mpath = os.path.join(ROOT, ".planning/manifest.json")
 manifest = json.load(open(mpath))
 gen = manifest["generated"]

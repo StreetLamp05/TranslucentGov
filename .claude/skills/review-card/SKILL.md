@@ -25,7 +25,7 @@ Same as `start-card` step 1: use a passed-in issue number/slug, or extract the c
 
 Do this yourself, before spawning anything — both agents need it, and re-deriving it twice wastes tokens on stale/duplicated tool output:
 
-- `gh issue list -R StreetLamp05/GovTok --search "<ID> in:title" --state all --json number,title,body,parent` for the card's own acceptance criteria, and the parent Feature's body for the sibling list (`Children: ...`). Only the "Acceptance criteria" list counts as ACs. A "Manual test (human, …)" section holds phone checks the user runs after merge: list it in the report as "for the user", but never review it, and never leave a card unchecked or NEEDS_INPUT because of it.
+- `gh issue list -R StreetLamp05/TranslucentGov --search "<ID> in:title" --state all --json number,title,body,parent` for the card's own acceptance criteria, and the parent Feature's body for the sibling list (`Children: ...`). Only the "Acceptance criteria" list counts as ACs. A "Manual test (human, …)" section holds phone checks the user runs after merge: list it in the report as "for the user", but never review it, and never leave a card unchecked or NEEDS_INPUT because of it.
 - The card's `Spec §` reference(s) — read that full numbered subsection of `GOVTOK_DECISIONS.md`, not just the cited bullet.
 - `git log --oneline -20` plus `git show --stat <sha>` for the most recent 1-2 merged sibling cards under the same Feature, to know the expected file footprint and established conventions (naming, test harness shape, comment style) this card should match or deliberately deviate from.
 - Relevant bits of `CLAUDE.md` (already in context) — in particular whatever convention applies to this card's area (e.g. the translation rule for scope).
