@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { ConvexError } from "convex/values";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { RecordedClip } from "../../../components/capture/VideoRecorder";
 import FixCapture from "../../../components/fix/FixCapture";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { ApiError } from "../../../lib/data/api";
 import type { LocationState } from "../../../lib/hooks/useCurrentLocation";
 
-const REPORT = { _id: "report-1" as Id<"reports">, lat: 33.8158, lng: -84.5825, status: "open" as const };
+const REPORT = { _id: "report-1", lat: 33.8158, lng: -84.5825, status: "open" as const };
 const FIXED = { ...REPORT, status: "fixed" as const };
 // ~111 m per 0.001° of latitude.
 const metersNorth = (m: number) => ({ lat: REPORT.lat + m / 111_000, lng: REPORT.lng });
@@ -15,26 +14,40 @@ const metersNorth = (m: number) => ({ lat: REPORT.lat + m / 111_000, lng: REPORT
 const state = vi.hoisted(() => ({
   location: { status: "loading" } as LocationState,
   refresh: vi.fn(),
-  submitFix: vi.fn(),
+  mutate: vi.fn(),
   attempt: undefined as unknown,
-  queryArgs: [] as unknown[],
-  uploads: [] as { blob: Blob; auth: unknown }[],
+  liveKeys: [] as (string | null)[],
+  intervals: [] as (number | undefined)[],
+  fetches: [] as unknown[][],
+  uploads: [] as { blob: Blob; as: string; kind: string }[],
   clip: null as RecordedClip | null,
 }));
 
-vi.mock("convex/react", () => ({
-  useMutation: () => state.submitFix,
-  useQuery: (_ref: unknown, args: unknown) => {
-    state.queryArgs.push(args);
+// The attempt poll: useLive hands back the faked verdict, and its fetcher is run once to see
+// which route and arguments it reads.
+vi.mock("../../../lib/data/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/data/api")>()),
+  mutate: (...args: unknown[]) => state.mutate(...args),
+  query: (...args: unknown[]) => {
+    state.fetches.push(args);
+    return Promise.resolve(null);
+  },
+}));
+vi.mock("../../../lib/data/useLive", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/data/useLive")>()),
+  useLive: (key: string | null, fetcher: (signal: AbortSignal) => unknown, options?: { intervalMs?: number }) => {
+    state.liveKeys.push(key);
+    state.intervals.push(options?.intervalMs);
+    void fetcher(new AbortController().signal);
     return state.attempt;
   },
 }));
 vi.mock("../../../lib/hooks/useCurrentLocation", () => ({
   useCurrentLocation: () => ({ ...state.location, refresh: state.refresh }),
 }));
-vi.mock("../../../lib/upload", () => ({
-  uploadFile: vi.fn(async (blob: Blob, auth?: unknown) => {
-    state.uploads.push({ blob, auth });
+vi.mock("../../../components/fix/uploadProof", () => ({
+  uploadProof: vi.fn(async (blob: Blob, as: string, kind: string) => {
+    state.uploads.push({ blob, as, kind });
     return `storage-${state.uploads.length}`;
   }),
 }));
@@ -59,9 +72,11 @@ const recordButton = () => screen.getByRole("button", { name: "Record fix" }) as
 beforeEach(() => {
   state.location = at(10);
   state.refresh.mockReset();
-  state.submitFix.mockReset().mockResolvedValue("attempt-1");
+  state.mutate.mockReset().mockResolvedValue("attempt-1");
   state.attempt = undefined;
-  state.queryArgs = [];
+  state.liveKeys = [];
+  state.intervals = [];
+  state.fetches = [];
   state.uploads = [];
   state.clip = null;
   recorderProps.length = 0;
@@ -134,29 +149,38 @@ describe("FixCapture geofence", () => {
 });
 
 describe("FixCapture submit and result", () => {
-  test("a fixer's clip and frames upload with the fixer token, then submitFix gets the filming location", async () => {
+  test("a fixer's clip and frames upload as a fixer, then /api/fixes gets the filming location", async () => {
     render(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     await recordAndSend();
     expect(state.uploads.map((u) => u.blob)).toEqual([CLIP.blob, ...CLIP.frames]);
-    expect(state.uploads.every((u) => (u.auth as { fixerToken: string }).fixerToken === "fx")).toBe(true);
-    expect(state.submitFix).toHaveBeenCalledWith({
+    expect(state.uploads.map((u) => u.kind)).toEqual(["video", "image", "image"]);
+    expect(state.uploads.every((u) => u.as === "fixer")).toBe(true);
+    expect(state.mutate).toHaveBeenCalledWith("/api/fixes", {
+      as: "fixer",
       reportId: "report-1",
       clipStorageId: "storage-1",
       frameStorageIds: ["storage-2", "storage-3"],
       ...metersNorth(10),
-      fixerToken: "fx",
     });
-    expect(state.queryArgs.at(-1)).toEqual({ attemptId: "attempt-1", fixerToken: "fx" });
+    // The tokens ride on the identity headers, never in the body.
+    expect(JSON.stringify(state.mutate.mock.calls[0][1])).not.toContain("fx\"");
+    expect(state.liveKeys.at(-1)).toBe("fix-attempt:attempt-1");
+    expect(state.fetches.at(-1)).toEqual(["/api/fixes/attempt", { attemptId: "attempt-1", as: "fixer" }, expect.anything()]);
     expect(screen.getByText("Checking…")).toBeTruthy();
   });
 
-  test("a neighbor uploads as a resident and submits with residentToken", async () => {
+  test("a neighbor uploads and submits as a resident", async () => {
     render(<FixCapture report={REPORT} auth={{ residentToken: "rt" }} />);
     await recordAndSend();
-    expect(state.uploads.every((u) => u.auth === undefined)).toBe(true);
-    expect(state.submitFix.mock.calls[0][0]).toMatchObject({ residentToken: "rt" });
-    expect(state.submitFix.mock.calls[0][0]).not.toHaveProperty("fixerToken");
-    expect(state.queryArgs.at(-1)).toEqual({ attemptId: "attempt-1", residentToken: "rt" });
+    expect(state.uploads.every((u) => u.as === "resident")).toBe(true);
+    expect(state.mutate.mock.calls[0][1]).toMatchObject({ as: "resident" });
+    expect(state.fetches.at(-1)?.[1]).toEqual({ attemptId: "attempt-1", as: "resident" });
+  });
+
+  test("polls the attempt every 2 s, so the verdict shows without a refresh", async () => {
+    render(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
+    await recordAndSend();
+    expect(state.intervals.at(-1)).toBe(2000);
   });
 
   test("verified links to the report in the feed", async () => {
@@ -190,7 +214,7 @@ describe("FixCapture submit and result", () => {
   });
 
   test("a server refusal goes back to Record fix with its message", async () => {
-    state.submitFix.mockRejectedValue(new ConvexError("Get within 50 m (you're 51 m away)."));
+    state.mutate.mockRejectedValue(new ApiError(400, "Get within 50 m (you're 51 m away)."));
     render(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     await recordAndSend();
     expect(screen.getByRole("alert").textContent).toBe("Get within 50 m (you're 51 m away).");
@@ -204,17 +228,17 @@ describe("FixCapture submit and result", () => {
     rerender(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     await act(async () => fireEvent.click(screen.getByText("fake record")));
     expect(state.uploads).toHaveLength(0);
-    expect(state.submitFix).not.toHaveBeenCalled();
+    expect(state.mutate).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toMatch(/^Get within 50 m \(you're 20\d m away\)\.$/);
   });
 
-  test("submitFix gets the latest position, not the one from when the page opened", async () => {
+  test("the submit gets the latest position, not the one from when the page opened", async () => {
     const { rerender } = render(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     fireEvent.click(recordButton());
     state.location = at(25);
     rerender(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     await act(async () => fireEvent.click(screen.getByText("fake record")));
-    expect(state.submitFix.mock.calls[0][0]).toMatchObject(metersNorth(25));
+    expect(state.mutate.mock.calls[0][1]).toMatchObject(metersNorth(25));
   });
 
   test("a report closed by someone else while you're on Record fix says so instead", () => {
@@ -258,7 +282,7 @@ describe("FixCapture submit and result", () => {
     render(<FixCapture report={REPORT} auth={{ fixerToken: "fx" }} />);
     await recordAndSend();
     expect(state.uploads).toHaveLength(0);
-    expect(state.submitFix).not.toHaveBeenCalled();
+    expect(state.mutate).not.toHaveBeenCalled();
     expect(screen.getByRole("alert").textContent).toMatch(/over 25 MB/);
   });
 });

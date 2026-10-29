@@ -1,13 +1,13 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import FixCapture from "@/components/fix/FixCapture";
 import { OwnerChip } from "@/components/fix/FixerList";
-import { api } from "@/convex/_generated/api";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import { query } from "@/lib/data/api";
+import { LIVE_STATUS_MS, LIVE_LIST_MS, useLive } from "@/lib/data/useLive";
+import type { PublicReport } from "@/server/lib/publicReport";
 import { daysLabel, daysOpen } from "@/lib/days";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
 import { useFixerToken } from "@/lib/hooks/useFixerToken";
@@ -17,9 +17,18 @@ import { useFixerToken } from "@/lib/hooks/useFixerToken";
 export default function FixReportPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const token = useFixerToken();
-  const session = useQuery(api.fixers.fixerSession, token ? { fixerToken: token } : "skip");
-  // Skipped until the token checks out, since the query throws on a bad one.
-  const report = useQuery(api.fixers.fixerReport, token && session ? { fixerToken: token, reportId } : "skip");
+  const session = useLive(
+    token ? `fixer-session:${token}` : null,
+    (signal) => query<{ org: string } | null>("/api/fixers/session", {}, { signal }),
+    { intervalMs: LIVE_LIST_MS },
+  );
+  // Skipped until the token checks out, since the route rejects a bad one. Polled, so a fix by
+  // someone else shows up here.
+  const report = useLive(
+    token && session ? `fixer-report:${reportId}` : null,
+    (signal) => query<PublicReport | null>("/api/fixers/report", { reportId }, { signal }),
+    { intervalMs: LIVE_STATUS_MS },
+  );
   const [started, setStarted] = useState(false);
 
   if (token === undefined) return null;
@@ -70,7 +79,7 @@ function Original({ report }: { report: PublicReport }) {
   return (
     <div className="flex aspect-[9/16] w-full snap-x snap-mandatory overflow-x-auto rounded-2xl bg-black">
       {photos.map((url) => (
-        // Convex storage URLs, so next/image's remote config doesn't apply.
+        // MinIO URLs, so next/image's remote config doesn't apply.
         // eslint-disable-next-line @next/next/no-img-element
         <img key={url} src={url} alt="" className="h-full w-full shrink-0 snap-center object-contain" />
       ))}
