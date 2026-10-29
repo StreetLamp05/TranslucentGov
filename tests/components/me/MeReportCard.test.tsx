@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { getFunctionName, type FunctionReference } from "convex/server";
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from "vitest";
 import type { CaptureMode } from "../../../components/capture/CameraCapture";
 import type { RecordedClip } from "../../../lib/hooks/useClipRecorder";
 import type { OwnerReport } from "../../../convex/lib/publicReport";
@@ -11,7 +11,7 @@ import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "../../../server/
 const NOW = 10 * 86_400_000;
 
 const state = vi.hoisted(() => ({
-  mutations: {} as Record<string, ReturnType<typeof vi.fn>>,
+  mutations: {} as Record<string, Mock<(body: unknown) => unknown>>,
   uploads: [] as Blob[],
 }));
 
@@ -21,8 +21,13 @@ vi.mock("convex/react", () => ({
     return (state.mutations[name] ??= vi.fn());
   },
 }));
+// Retake and ScreeningFailed (components/post/CheckingScreen.tsx) call the route handlers (US35).
+vi.mock("../../../lib/data/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/data/api")>()),
+  mutate: async (path: string, body: unknown) => (state.mutations[path] ??= vi.fn())(body),
+}));
 vi.mock("../../../lib/upload", () => ({
-  uploadFile: vi.fn(async (blob: Blob) => {
+  uploadMedia: vi.fn(async (blob: Blob) => {
     state.uploads.push(blob);
     return `storage-${state.uploads.length}`;
   }),
@@ -136,7 +141,7 @@ test("a sample report carries the Sample badge (§6.1.1)", () => {
 
 test("the Me page retake flow records replacement media and calls retakeReport", async () => {
   const retakeReport = vi.fn().mockResolvedValue(undefined);
-  state.mutations["retake:retakeReport"] = retakeReport;
+  state.mutations["/api/retake"] = retakeReport;
   const view = render(
     <MeReportCard
       report={report({ status: "held", verdict: "retake", reason: "Cover the plate" })}
@@ -151,7 +156,6 @@ test("the Me page retake flow records replacement media and calls retakeReport",
 
   expect(state.uploads).toEqual([RETAKE_CLIP.blob, RETAKE_CLIP.frames[0]]);
   expect(retakeReport).toHaveBeenCalledWith({
-    token: "resident-a",
     reportId: "report-1",
     mediaType: "video",
     clipStorageId: "storage-1",
@@ -164,7 +168,7 @@ test("the Me page retake flow records replacement media and calls retakeReport",
 
 test("the Me page retries a failed screening and returns to Checking…", async () => {
   const retryScreening = vi.fn().mockResolvedValue(undefined);
-  state.mutations["retake:retryScreening"] = retryScreening;
+  state.mutations["/api/retake/retry"] = retryScreening;
   const view = render(
     <MeReportCard
       report={report({ status: "held", reason: SCREENING_FAILED_REASON, screeningRetries: 0 })}
@@ -176,7 +180,7 @@ test("the Me page retries a failed screening and returns to Checking…", async 
   const button = screen.getByRole("button", { name: "Try again" });
   expect(button.hasAttribute("disabled")).toBe(false);
   await act(async () => fireEvent.click(button));
-  expect(retryScreening).toHaveBeenCalledWith({ token: "resident-a", reportId: "report-1" });
+  expect(retryScreening).toHaveBeenCalledWith({ reportId: "report-1" });
 
   view.rerender(<MeReportCard report={report({ status: "pending" })} now={NOW} token="resident-a" />);
   expect(screen.getByText("Checking…")).toBeTruthy();

@@ -1,18 +1,16 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import CameraCapture from "@/components/capture/CameraCapture";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
+import { ApiError, mutate, query } from "@/lib/data/api";
+import { LIVE_STATUS_MS, useLive } from "@/lib/data/useLive";
 import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
 import { CLIP_TOO_BIG } from "@/server/lib/postLimits";
-import type { OwnerReport } from "@/convex/lib/publicReport";
+import type { OwnerReport } from "@/server/lib/publicReport";
 import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "@/server/lib/screening";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
-import { uploadFile } from "@/lib/upload";
+import { uploadMedia } from "@/lib/upload";
 
 // "Checking…" (§4.2.1): the poster waits here, subscribed to their report, until screening
 // moves it out of pending, then sees what happened: posted (maybe muted), retake, reject,
@@ -31,11 +29,16 @@ export default function CheckingScreen({
   reportId,
   onPostAnother,
 }: {
-  reportId: Id<"reports">;
+  reportId: string;
   onPostAnother: () => void;
 }) {
   const token = useResidentToken();
-  const report = useQuery(api.posts.myReport, token ? { token, reportId } : "skip");
+  // Polled every ~2s (§1.1.1), so the verdict appears without a refresh.
+  const report = useLive(
+    token ? `my-report:${reportId}` : null,
+    (signal) => query<OwnerReport | null>("/api/posts/mine", { reportId }, { signal }),
+    { intervalMs: LIVE_STATUS_MS },
+  );
   const postAnother = (
     <button onClick={onPostAnother} className={secondary}>
       Post another
@@ -153,7 +156,6 @@ function Emergency({ report }: { report: OwnerReport }) {
 
 // Record again with the same media type; the new files replace the old ones on this report.
 export function Retake({ token, report }: { token: string | null; report: OwnerReport }) {
-  const retakeReport = useMutation(api.retake.retakeReport);
   const [step, setStep] = useState<"reason" | "capture" | "sending">("reason");
   const [error, setError] = useState<string | null>(null);
 
@@ -168,14 +170,14 @@ export function Retake({ token, report }: { token: string | null; report: OwnerR
     setError(null);
     try {
       const [clipStorageId, frameStorageIds] = await Promise.all([
-        files.clip ? uploadFile(files.clip) : undefined,
-        Promise.all(files.frames.map((frame) => uploadFile(frame))),
+        files.clip ? uploadMedia(files.clip) : undefined,
+        Promise.all(files.frames.map((frame) => uploadMedia(frame))),
       ]);
       // On success the report is pending again and this screen turns back into Checking….
-      await retakeReport({ token, reportId: report._id, mediaType: report.mediaType, clipStorageId, frameStorageIds });
+      await mutate("/api/retake", { reportId: report._id, mediaType: report.mediaType, clipStorageId, frameStorageIds });
     } catch (err) {
       // Back to the reason, where the error shows (the camera covers the screen), with Retake again.
-      setError(err instanceof ConvexError && typeof err.data === "string" ? err.data : SEND_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : SEND_ERROR);
       setStep("reason");
     }
   }
@@ -242,7 +244,6 @@ export function ScreeningFailed({
   /** Omit where there's no posting flow to restart (e.g. the Me page). */
   onPostAnother?: () => void;
 }) {
-  const retryScreening = useMutation(api.retake.retryScreening);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const outOfRetries = (report.screeningRetries ?? 0) >= MAX_SCREENING_RETRIES;
@@ -252,9 +253,9 @@ export function ScreeningFailed({
     setBusy(true);
     setError(null);
     try {
-      await retryScreening({ token, reportId: report._id });
+      await mutate("/api/retake/retry", { reportId: report._id });
     } catch (err) {
-      setError(err instanceof ConvexError && typeof err.data === "string" ? err.data : RETRY_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : RETRY_ERROR);
     } finally {
       setBusy(false);
     }

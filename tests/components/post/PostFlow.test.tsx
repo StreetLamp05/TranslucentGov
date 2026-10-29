@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render as testingRender, screen } from "@testing-library/react";
-import { ConvexError } from "convex/values";
+import { ApiError } from "../../../lib/data/api";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { CaptureMode } from "../../../components/capture/CameraCapture";
@@ -19,18 +19,30 @@ const state = vi.hoisted(() => ({
   myReport: undefined as unknown,
   myReportArgs: [] as unknown[],
   uploads: [] as Blob[],
+  liveKeys: [] as string[],
 }));
 
-vi.mock("convex/react", () => ({
-  useMutation: () => state.createReport,
-  useQuery: (_ref: unknown, args: unknown) => {
-    if (args === "skip") return undefined;
-    if (args && typeof args === "object" && "reportId" in args) {
-      state.myReportArgs.push(args);
-      return state.myReport;
-    }
-    state.nearbyArgs.push(args);
-    return state.nearbyReports;
+// Identity rides in headers (lib/data/api.ts), so the calls carry no token. `useLive` is replaced
+// by a synchronous stand-in that runs the fetcher once and returns the test's value for the key.
+vi.mock("../../../lib/data/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/data/api")>()),
+  query: async (path: string, args: unknown) => {
+    if (path === "/api/nearby") state.nearbyArgs.push(args);
+    if (path === "/api/posts/mine") state.myReportArgs.push(args);
+  },
+  mutate: async (path: string, body: unknown) => {
+    if (path === "/api/posts") return state.createReport(body);
+    throw new Error(`unexpected mutate ${path}`);
+  },
+}));
+vi.mock("../../../lib/data/useLive", () => ({
+  LIVE_LIST_MS: 10_000,
+  LIVE_STATUS_MS: 2_000,
+  useLive: (key: string | null, fetcher: (signal: AbortSignal) => Promise<unknown>) => {
+    if (key === null) return undefined;
+    state.liveKeys.push(key);
+    void fetcher(new AbortController().signal);
+    return key.startsWith("nearby:") ? state.nearbyReports : state.myReport;
   },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: state.push }) }));
@@ -42,7 +54,7 @@ vi.mock("../../../lib/hooks/useResidentToken", () => ({
   useResidentToken: () => "token-a",
 }));
 vi.mock("../../../lib/upload", () => ({
-  uploadFile: vi.fn(async (blob: Blob) => {
+  uploadMedia: vi.fn(async (blob: Blob) => {
     state.uploads.push(blob);
     return `storage-${state.uploads.length}`;
   }),
@@ -106,6 +118,7 @@ beforeEach(() => {
   state.myReport = undefined;
   state.myReportArgs = [];
   state.uploads = [];
+  state.liveKeys = [];
   state.push.mockReset();
   cameraProps.length = 0;
 });
@@ -149,7 +162,6 @@ describe("PostFlow", () => {
     expect(state.nearbyArgs.at(-1)).toEqual({
       lat: MANUAL_POINT.lat,
       lng: MANUAL_POINT.lng,
-      token: "token-a",
     });
     expect(screen.getByText("fake record")).toBeTruthy();
     fireEvent.click(screen.getByText("fake record"));
@@ -170,7 +182,6 @@ describe("PostFlow", () => {
     expect(state.nearbyArgs.at(-1)).toEqual({
       lat: DEMO_POINT.lat,
       lng: DEMO_POINT.lng,
-      token: "token-a",
     });
   });
 
@@ -204,7 +215,6 @@ describe("PostFlow", () => {
     expect(state.nearbyArgs.at(-1)).toEqual({
       lat: 33.8158,
       lng: -84.5825,
-      token: "token-a",
     });
 
     state.nearbyReports = [];
@@ -300,7 +310,6 @@ describe("PostFlow", () => {
     expect(state.createReport).toHaveBeenCalledTimes(1);
     const args = state.createReport.mock.calls[0][0];
     expect(args).toMatchObject({
-      token: "token-a",
       mediaType: "video",
       description: "Deep pothole",
       lat: 33.8158,
@@ -311,7 +320,7 @@ describe("PostFlow", () => {
     );
     expect(args.frameStorageIds).toHaveLength(6);
     expect(screen.getByRole("heading").textContent).toBe("Checking…");
-    expect(state.myReportArgs.at(-1)).toEqual({ token: "token-a", reportId: "report-1" });
+    expect(state.myReportArgs.at(-1)).toEqual({ reportId: "report-1" });
   });
 
   test("an empty description is sent as none", async () => {
@@ -358,7 +367,7 @@ describe("PostFlow", () => {
   });
 
   test("a server error shows its message and keeps the clip, so Submit works again", async () => {
-    state.createReport.mockRejectedValueOnce(new ConvexError("An uploaded file is missing. Try posting again."));
+    state.createReport.mockRejectedValueOnce(new ApiError(400, "An uploaded file is missing. Try posting again."));
     render(<PostFlow />);
     await recordAndSubmit();
     expect(screen.getByRole("alert").textContent).toBe("An uploaded file is missing. Try posting again.");
@@ -369,8 +378,8 @@ describe("PostFlow", () => {
   });
 
   test("a failed upload shows a generic error and doesn't create a report", async () => {
-    const { uploadFile } = await import("../../../lib/upload");
-    vi.mocked(uploadFile).mockRejectedValueOnce(new Error("Upload failed (500)"));
+    const { uploadMedia } = await import("../../../lib/upload");
+    vi.mocked(uploadMedia).mockRejectedValueOnce(new Error("Upload failed (500)"));
     render(<PostFlow />);
     await recordAndSubmit();
     expect(screen.getByRole("alert").textContent).toMatch(/couldn't send your post/);
@@ -447,7 +456,6 @@ describe("Photos", () => {
     expect(state.createReport).toHaveBeenCalledTimes(1);
     const args = state.createReport.mock.calls[0][0];
     expect(args).toEqual({
-      token: "token-a",
       mediaType: "photos",
       frameStorageIds: ["storage-1", "storage-2", "storage-3"],
       description: "Graffiti on the bridge",
@@ -488,8 +496,8 @@ describe("Photos", () => {
   });
 
   test("a failed photo upload shows the generic error and doesn't create a report", async () => {
-    const { uploadFile } = await import("../../../lib/upload");
-    vi.mocked(uploadFile).mockRejectedValueOnce(new Error("Upload failed (500)"));
+    const { uploadMedia } = await import("../../../lib/upload");
+    vi.mocked(uploadMedia).mockRejectedValueOnce(new Error("Upload failed (500)"));
     render(<PostFlow />);
     fireEvent.click(screen.getByText("fake pick"));
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Submit" })));
