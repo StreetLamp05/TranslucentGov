@@ -1,10 +1,10 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api } from "@/convex/_generated/api";
-import type { OwnerReport, PublicReport } from "@/convex/lib/publicReport";
+import type { OwnerReport, PublicReport } from "@/server/lib/publicReport";
+import { query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 import MeReportCard from "./MeReportCard";
 
@@ -13,8 +13,14 @@ type FollowedReport = { createdAt: number; report: PublicReport };
 export default function MePageContent() {
   const router = useRouter();
   const token = useResidentToken();
-  const reports = useQuery(api.me.myReports, token ? { token } : "skip");
-  const meToos = useQuery(api.me.myMeToos, token ? { token } : "skip");
+  // The device token goes out as a header (lib/data/api.ts); it's in the key so a token that
+  // loads late (or changes) refetches.
+  const reports = useLive(token ? `me:reports:${token}` : null, (signal) =>
+    query<OwnerReport[]>("/api/me/reports", {}, { signal }),
+  );
+  const meToos = useLive(token ? `me:me-toos:${token}` : null, (signal) =>
+    query<FollowedReport[]>("/api/me/me-toos", {}, { signal }),
+  );
   const [now] = useState(() => Date.now());
   const resolved = [...(reports ?? []), ...(meToos ?? []).map(({ report }) => report)].filter(
     (report) => report.status === "fixed",

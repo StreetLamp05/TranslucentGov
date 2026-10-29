@@ -1,42 +1,41 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useState } from "react";
+import { mutate, query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
 import { neighborCanConfirm } from "@/server/lib/fixRules";
-import type { PublicReport } from "@/convex/lib/publicReport";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
 import type { FeedSlotProps } from "./FeedCard";
+
+// The caller's relation to a report (GET /api/relation): which they posted and which they
+// already me-too'd.
+type Relation = { mine: string[]; meTooed: string[] };
 
 // Me too with its count (§5.1.1, §2.1.1): one tap adds you to the problem. Hidden on fixed
 // cards and on your own posts (§4.1.2 build-plan defaults). Sits above "Is it fixed?" in the
 // right-hand column, or in its place when the card has none (see CardOverlay's layout note).
 export default function CardRail({ report, near }: FeedSlotProps) {
   const token = useResidentToken();
-  // Only near cards subscribe, so a long feed doesn't hold a query per card.
-  const relation = useQuery(api.relation.myRelation, token && near ? { token, reportIds: [report._id] } : "skip");
-  const meToo = useMutation(api.meToos.meToo).withOptimisticUpdate((store, { reportId }) => {
-    const bump = (r: PublicReport): PublicReport => (r._id === reportId ? { ...r, meTooCount: r.meTooCount + 1 } : r);
-    const feed = store.getQuery(api.feed.feed, {});
-    if (feed) store.setQuery(api.feed.feed, {}, feed.map(bump));
-    for (const { args, value } of store.getAllQueries(api.feed.reportById)) {
-      if (value) store.setQuery(api.feed.reportById, args, bump(value));
-    }
-    for (const { args, value } of store.getAllQueries(api.relation.myRelation)) {
-      if (value && args.reportIds.includes(reportId) && !value.meTooed.includes(reportId)) {
-        store.setQuery(api.relation.myRelation, args, { ...value, meTooed: [...value.meTooed, reportId] });
-      }
-    }
-  });
+  // Only near cards poll, so a long feed doesn't hold a request per card.
+  const relation = useLive(token && near ? `relation:${token}:${report._id}` : null, (signal) =>
+    query<Relation>("/api/relation", { reportIds: [report._id] }, { signal }),
+  );
+  // The count when the button was tapped. It shows pressed with one more at once; the server's
+  // answer follows when the write settles and the feed and relation refetch (mutate() triggers
+  // both). A failed write clears it.
+  const [tappedAt, setTappedAt] = useState<number | null>(null);
 
   if (report.status !== "open" || !token || !relation || relation.mine.includes(report._id)) return null;
-  const pressed = relation.meTooed.includes(report._id);
-  const count = report.meTooCount;
+  const pressed = tappedAt !== null || relation.meTooed.includes(report._id);
+  const count = tappedAt === null ? report.meTooCount : Math.max(report.meTooCount, tappedAt + 1);
 
   async function tap() {
+    setTappedAt(report.meTooCount);
     try {
-      await meToo({ token: token!, reportId: report._id });
+      await mutate("/api/me-too", { reportId: report._id });
     } catch {
-      // The optimistic update rolls back, so the count and button show the server's truth.
+      // Back to the server's truth: the count and button come from the refetch.
+      setTappedAt(null);
     }
   }
 

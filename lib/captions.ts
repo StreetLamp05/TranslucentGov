@@ -1,4 +1,4 @@
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
 
 export type CaptionSegment = NonNullable<PublicReport["segments"]>[number];
 

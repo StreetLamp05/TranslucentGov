@@ -2,7 +2,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import RevealPlayer, { PHOTO_HOLD_MS, STAMP_MS, stampText, type RevealReport } from "../../components/RevealPlayer";
-import type { Id } from "../../convex/_generated/dataModel";
 import { SoundProvider } from "../../lib/hooks/sound";
 
 const DAY_MS = 86_400_000;
@@ -11,7 +10,7 @@ const FIX = "https://files.test/r1-fix.mp4";
 
 function report(overrides: Partial<RevealReport> = {}): RevealReport {
   return {
-    _id: "r1" as Id<"reports">,
+    _id: "r1",
     clipUrl: CLIP,
     frameUrls: ["https://files.test/r1.jpg"],
     fixUrl: FIX,

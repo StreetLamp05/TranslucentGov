@@ -3,16 +3,21 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import Feed from "../../../components/feed/Feed";
 import type { FeedSlotProps } from "../../../components/feed/FeedCard";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 import { SoundProvider } from "../../../lib/hooks/sound";
 
-// The feed reads two queries: feed (no args) and reportById ({id}, or "skip").
+// The feed polls two reads (US37): the list ("feed") and a deep link's report ("feed:<id>", or
+// no key when there is none). The mock hands out what the test set, and records the keys.
 const data: { feed: PublicReport[] | undefined; pinned: PublicReport | null | undefined } = {
   feed: undefined,
   pinned: undefined,
 };
-vi.mock("convex/react", () => ({
-  useQuery: (_ref: unknown, args?: unknown) => (args === undefined ? data.feed : args === "skip" ? undefined : data.pinned),
+const keys: (string | null)[] = [];
+vi.mock("../../../lib/data/useLive", () => ({
+  useLive: (key: string | null) => {
+    keys.push(key);
+    return key === "feed" ? data.feed : key === null ? undefined : data.pinned;
+  },
 }));
 
 // The rail slot (US18) shows what it's given, so the tests can see live data and state reach the card.
@@ -160,6 +165,39 @@ describe("order", () => {
     unmount();
     renderFeed();
     expect(cardOrder()).toEqual(["c", "a", "b"]);
+  });
+
+  test("a report approved after the feed opened joins at the end, without moving the others", () => {
+    data.feed = [report("a", { lastActivityAt: 30 }), report("b", { lastActivityAt: 20 })];
+    const { rerender, unmount } = renderFeed();
+    data.feed = [report("n", { lastActivityAt: 50 }), report("a", { lastActivityAt: 30 }), report("b", { lastActivityAt: 20 })];
+    rerender(
+      <SoundProvider>
+        <Feed />
+      </SoundProvider>,
+    );
+    expect(cardOrder()).toEqual(["a", "b", "n"]);
+
+    unmount();
+    renderFeed();
+    expect(cardOrder()).toEqual(["n", "a", "b"]);
+  });
+
+  test("reads the list, and a deep link's report only when there is one", () => {
+    data.feed = [report("a")];
+    keys.length = 0;
+    const { unmount } = renderFeed();
+    expect(new Set(keys)).toEqual(new Set(["feed", null]));
+    unmount();
+
+    keys.length = 0;
+    data.pinned = null;
+    render(
+      <SoundProvider>
+        <Feed firstId="deep" />
+      </SoundProvider>,
+    );
+    expect(new Set(keys)).toEqual(new Set(["feed", "feed:deep"]));
   });
 
   test("a card that drops out of the live feed keeps its place", () => {

@@ -1,4 +1,4 @@
-import type { MapReport } from "../../convex/map";
+import type { MapReport } from "../../server/map";
 
 // Map numbers and colors (§5.2.1). A marker counts its poster plus every me-too, and a
 // cluster sums its markers, so the number reads as "people reporting", not "pins".

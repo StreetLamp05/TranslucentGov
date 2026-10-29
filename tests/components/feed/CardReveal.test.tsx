@@ -5,14 +5,12 @@ import CardReveal from "../../../components/feed/CardReveal";
 import Feed from "../../../components/feed/Feed";
 import { recordRevealViewOnce, STAMP_MS } from "../../../components/RevealPlayer";
 import type { Id } from "../../../convex/_generated/dataModel";
-import type { PublicReport } from "../../../convex/lib/publicReport";
+import type { PublicReport } from "../../../server/lib/publicReport";
 
 const record = vi.fn();
 let feed: PublicReport[] = [];
-vi.mock("convex/react", () => ({
-  useMutation: () => record,
-  useQuery: (_ref: unknown, args?: unknown) => (args === undefined ? feed : undefined),
-}));
+vi.mock("../../../lib/data/api", () => ({ mutate: (...args: unknown[]) => record(...args) }));
+vi.mock("../../../lib/data/useLive", () => ({ useLive: (key: string | null) => (key === "feed" ? feed : undefined) }));
 // The Me too rail (US18) has its own tests.
 vi.mock("../../../components/feed/CardRail", () => ({ default: () => null }));
 
@@ -90,7 +88,7 @@ describe("CardReveal", () => {
     ended(video);
     expect(screen.getByTestId("fixed-stamp")).toBeTruthy();
     expect(record).toHaveBeenCalledTimes(1);
-    expect(record).toHaveBeenCalledWith({ reportId: "r1" });
+    expect(record).toHaveBeenCalledWith("/api/reveal", { reportId: "r1" });
 
     // Later loops don't count.
     wait(STAMP_MS);
@@ -112,7 +110,7 @@ describe("CardReveal", () => {
     show(report({ _id: "r2" as Id<"reports"> }), other);
     ended(other);
     expect(record).toHaveBeenCalledTimes(2);
-    expect(record).toHaveBeenLastCalledWith({ reportId: "r2" });
+    expect(record).toHaveBeenLastCalledWith("/api/reveal", { reportId: "r2" });
   });
 });
 
@@ -127,7 +125,7 @@ describe("in the feed", () => {
     expect(pooledVideo.loop).toBe(false);
     ended(pooledVideo);
     expect(screen.getByTestId("fixed-stamp")).toBeTruthy();
-    expect(record).toHaveBeenCalledWith({ reportId: "f1" });
+    expect(record).toHaveBeenCalledWith("/api/reveal", { reportId: "f1" });
     // The open card's element still loops.
     expect((view.container.querySelector('video[data-report-id="f2"]') as HTMLVideoElement).loop).toBe(true);
   });

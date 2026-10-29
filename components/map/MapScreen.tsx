@@ -1,10 +1,11 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { ACTIVE_CITY } from "../../server/lib/city";
-import { api } from "../../convex/_generated/api";
+import { query } from "../../lib/data/api";
+import { useLive } from "../../lib/data/useLive";
+import type { MapReport } from "../../server/map";
 import { useDemoMode } from "../../lib/hooks/useDemoMode";
 import { clusterCount, MIXED_COLOR, STATUS_COLOR, type MapStatus } from "./counts";
 import ReportsMap from "./ReportsMap";
@@ -14,7 +15,7 @@ import ReportsMap from "./ReportsMap";
 type Filter = "all" | MapStatus;
 
 export default function MapScreen() {
-  const reports = useQuery(api.map.mapReports);
+  const reports = useLive("map", (signal) => query<MapReport[]>("/api/map", {}, { signal }));
   const router = useRouter();
   const focusId = useSearchParams().get("report");
   const demo = useDemoMode();

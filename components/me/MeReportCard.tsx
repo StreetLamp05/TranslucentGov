@@ -5,7 +5,7 @@ import { useState } from "react";
 import { statusText } from "@/components/feed/CardOverlay";
 import { HoldDebug, Retake, ScreeningFailed } from "@/components/post/CheckingScreen";
 import RevealPlayer from "@/components/RevealPlayer";
-import type { OwnerReport, PublicReport } from "@/convex/lib/publicReport";
+import type { OwnerReport, PublicReport } from "@/server/lib/publicReport";
 import { SCREENING_FAILED_REASON } from "@/server/lib/screening";
 import { daysLabel, daysOpen } from "@/lib/days";
 
@@ -29,9 +29,13 @@ export function reportStatusText(report: OwnerReport | PublicReport, now: number
   return statusText({ status: report.status, createdAt: report.createdAt, fixedAt: report.fixedAt }, now);
 }
 
+// CheckingScreen still types its report with Convex's Id-typed OwnerReport until US35 ports it.
+// The shapes match apart from the `_id` brand, so the held card casts; drop the cast then.
+type CheckingReport = Parameters<typeof Retake>[0]["report"];
+
 export default function MeReportCard({ report, now, token = null, isMeToo = false, onPostAnother }: Props) {
   const fixed = report.status === "fixed";
-  const held = report.status === "held" ? report : null;
+  const held = report.status === "held" ? (report as CheckingReport) : null;
   const publicReport = report.status === "open" || fixed;
   const status = reportStatusText(report, now);
   const [playing, setPlaying] = useState(false);

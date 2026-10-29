@@ -10,6 +10,7 @@
     "dev:frontend": "next dev",
     "dev:backend": "scripts/with-node.sh convex dev",
     "worker": "tsx worker/index.ts",
+    "impact": "tsx scripts/impact-stats.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

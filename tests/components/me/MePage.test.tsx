@@ -1,19 +1,19 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { getFunctionName, type FunctionReference } from "convex/server";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import MePageContent from "@/components/me/MePage";
-import type { OwnerReport, PublicReport } from "@/convex/lib/publicReport";
+import type { OwnerReport, PublicReport } from "@/server/lib/publicReport";
 
 const state = vi.hoisted(() => ({
   reports: undefined as unknown,
   meToos: undefined as unknown,
 }));
 
-vi.mock("convex/react", () => ({
-  useQuery: (ref: FunctionReference<"query">) => {
-    const name = getFunctionName(ref);
-    return name === "me:myReports" ? state.reports : state.meToos;
+// Two polled reads (US37), keyed by the device token; no token is no key.
+vi.mock("@/lib/data/useLive", () => ({
+  useLive: (key: string | null) => {
+    if (key === null) return undefined;
+    return key.startsWith("me:reports:") ? state.reports : state.meToos;
   },
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -24,7 +24,7 @@ vi.mock("@/components/me/MeReportCard", () => ({
 
 function ownerReport(fields: Partial<OwnerReport>): OwnerReport {
   return {
-    _id: "mine" as OwnerReport["_id"],
+    _id: "mine",
     _creationTime: 1,
     mediaType: "video",
     lat: 37.7694,
@@ -46,7 +46,7 @@ function ownerReport(fields: Partial<OwnerReport>): OwnerReport {
 
 function publicReport(fields: Partial<PublicReport>): PublicReport {
   return {
-    _id: "supported" as PublicReport["_id"],
+    _id: "supported",
     _creationTime: 2,
     mediaType: "video",
     lat: 37.7694,
