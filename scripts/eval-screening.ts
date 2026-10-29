@@ -1,5 +1,5 @@
 // Runs screenPost over the US3 screening fixtures and prints expected vs actual (§4.2.1).
-// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in convex/lib/gemini.ts).
+// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in server/lib/gemini.ts).
 //
 // Usage: npx tsx --env-file=.env.local scripts/eval-screening.ts [path/to/labels.json]
 //
@@ -12,8 +12,8 @@
 // run, so a labels.json in some other shape can't pass as "0/0 match".
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ImageMediaType } from "../convex/lib/gemini";
-import { screenPost, type ScreenResult } from "../convex/lib/screenPrompt";
+import type { ImageMediaType } from "../server/lib/gemini";
+import { screenPost, type ScreenResult } from "../server/lib/screenPrompt";
 
 type Case = {
   id: string;

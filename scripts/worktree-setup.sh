@@ -6,18 +6,9 @@
 # `govtok`), each with a database and bucket named after its card, e.g. govtok_us33 and
 # govtok-us33. The script writes DATABASE_URL and S3_* to the worktree's .env.local and applies
 # the migrations. Run it once per worktree, from inside the worktree. It is safe to re-run.
-#
-# Until US40 removes Convex, it first gives the worktree its own local Convex deployment, and
-# refuses to leave the worktree pointing at a cloud one.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-
-# Convex's local backend runs "use node" actions only on the pinned Node (.nvmrc), so
-# re-run this script under it.
-if [ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true)" != "$(tr -d '[:space:]' < .nvmrc)" ]; then
-  exec scripts/with-node.sh "$(pwd)/scripts/worktree-setup.sh" "$@"
-fi
 
 ENV_FILE=".env.local"
 
@@ -27,10 +18,6 @@ if [ "$(git rev-parse --git-dir)" = "$(git rev-parse --git-common-dir)" ]; then
   exit 1
 fi
 
-if [ -d convex ] && [ ! -f "$ENV_FILE" ]; then
-  echo "error: $ENV_FILE not found in $(pwd). Copy it from the main checkout first." >&2
-  exit 1
-fi
 touch "$ENV_FILE"
 
 # Drops these keys from .env.local (so they can be re-added, or must not be shared).
@@ -42,48 +29,6 @@ drop_vars() {
   cat "$tmp" > "$ENV_FILE"
   rm -f "$tmp"
 }
-
-# --- Convex (until US40 deletes convex/) --------------------------------------------------
-
-# First, so Convex-track worktrees are set up even where Docker isn't running.
-if [ -d convex ]; then
-  # 1. Drop every pointer to a shared deployment.
-  drop_vars CONVEX_DEPLOYMENT CONVEX_DEPLOY_KEY CONVEX_URL CONVEX_SITE_URL NEXT_PUBLIC_CONVEX_URL NEXT_PUBLIC_CONVEX_SITE_URL
-  unset CONVEX_DEPLOYMENT CONVEX_DEPLOY_KEY CONVEX_URL CONVEX_SITE_URL NEXT_PUBLIC_CONVEX_URL NEXT_PUBLIC_CONVEX_SITE_URL
-
-  # 2. Start a fresh anonymous local deployment (writes CONVEX_DEPLOYMENT and
-  #    NEXT_PUBLIC_CONVEX_URL back into .env.local).
-  CONVEX_AGENT_MODE=anonymous npx convex dev --once
-
-  # 3. Refuse anything that is not a local deployment.
-  read_var() {
-    grep -E "^$1=" "$ENV_FILE" | tail -n1 | cut -d= -f2- | tr -d '\r"'"'"
-  }
-  deployment=$(read_var CONVEX_DEPLOYMENT)
-  url=$(read_var NEXT_PUBLIC_CONVEX_URL)
-
-  case "$deployment" in
-    anonymous:*|local:*) ;;
-    *)
-      echo "error: refusing to continue, CONVEX_DEPLOYMENT is not a local deployment." >&2
-      exit 1
-      ;;
-  esac
-  case "$url" in
-    http://127.0.0.1:*|http://localhost:*) ;;
-    *)
-      echo "error: refusing to continue, NEXT_PUBLIC_CONVEX_URL is not a local address." >&2
-      exit 1
-      ;;
-  esac
-
-  # 4. Put the server keys on the new deployment.
-  "$(dirname "$0")/convex-env.sh"
-
-  echo "Worktree ready: local Convex deployment $deployment at $url"
-fi
-
-# --- Postgres and MinIO -------------------------------------------------------------------
 
 # Same settings and defaults as docker-compose.yml.
 pg_user=${POSTGRES_USER:-govtok}

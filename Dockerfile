@@ -13,7 +13,6 @@ COPY . .
 
 FROM source AS build
 # NEXT_PUBLIC_* values are baked into the browser bundle at build time.
-ARG NEXT_PUBLIC_CONVEX_URL
 ARG NEXT_PUBLIC_GOOGLE_MAPS_KEY
 ARG NEXT_PUBLIC_GOOGLE_MAP_ID
 ENV NEXT_TELEMETRY_DISABLED=1

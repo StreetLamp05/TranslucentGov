@@ -47,6 +47,16 @@ describe("caller.resident (writes)", () => {
     expect(body).toEqual({ error: "Missing device token" });
     expect(await residentCount()).toBe(0);
   });
+
+  it("is a 401 for a blank token", async () => {
+    const { status, body } = await call(
+      async (_req, { caller }) => caller.resident(),
+      request({ [RESIDENT_TOKEN_HEADER]: "   " }),
+    );
+    expect(status).toBe(401);
+    expect(body).toEqual({ error: "Missing device token" });
+    expect(await residentCount()).toBe(0);
+  });
 });
 
 describe("caller.findResident (reads)", () => {

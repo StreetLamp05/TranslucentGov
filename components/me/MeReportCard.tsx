@@ -52,7 +52,7 @@ export default function MeReportCard({ report, now, token = null, isMeToo = fals
       <div className="flex gap-3 p-3.5">
         <div className="relative size-[76px] shrink-0 overflow-hidden rounded-[13px] bg-[#E7E9E0]">
           {thumbnail ? (
-            // Convex storage URLs are not configured for next/image.
+            // MinIO URLs are not configured for next/image.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={thumbnail} alt="" className="h-full w-full object-cover" />
           ) : (

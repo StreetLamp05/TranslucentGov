@@ -25,8 +25,9 @@ Recording a video and tapping "Me too" are familiar actions. They make participa
 
 ### Under the hood
 
-- **Next.js (App Router) on Vercel:** a mobile web app, no install. Recording, clip conversion, frame grabs and the full-screen swipe feed all run in the browser.
-- **Convex:** database, file storage, live updates and server actions. Me-too counts, new posts and fixes reach every feed in real time.
+- **Next.js (App Router):** a mobile web app, no install. Recording, clip conversion, frame grabs and the full-screen swipe feed all run in the browser.
+- **Postgres, MinIO and pg-boss:** Postgres (Drizzle) holds reports, residents, me-toos and fixes. MinIO stores the videos and photos. A pg-boss worker runs screening, fix checks and the nightly purge. Route handlers serve the screens, which poll about every 10 s, so me-too counts, new posts and fixes reach every feed within seconds.
+- **docker compose:** the whole stack (Caddy, the app, the worker, Postgres, MinIO) runs on one machine, so a city can host it themselves.
 - **Claude (`claude-opus-5-5`):** two jobs, screening a post and checking a fix. Each is one call with images and structured JSON output. The Claude API doesn't take audio or video, so it gets 6 frames plus the transcript. Transcripts and descriptions are treated as data, never as instructions.
 - **Gemini:** transcribes each clip's audio, from the video itself (inline, or through the Files API for big clips).
 - **Google Maps:** the clustered map, and reverse geocoding for the street name (never a house number).
@@ -68,38 +69,36 @@ Residents shouldn't have to wonder whether their voice mattered or whether a pro
 
 Residents are anonymous: each device gets a resident token. Fixers sign in with a passcode.
 
-## How we use Convex
-- Convex stores reports, residents, me-toos, fixes, and uploaded media.
-- Queries power live feed, map, report-status, and fix-status screens.
-- Mutations and actions handle posting, screening, and proof-of-fix checks.
-- See the [Cal Hacks log](hackathon.md) for details and commit history.
+## How the backend works
+- Postgres stores reports, residents, me-toos, fixes and intake videos; MinIO stores the uploaded media.
+- Route handlers under `app/api/` serve the feed, map, report-status and fix-status screens, which poll for changes.
+- The worker screens each post, checks each proof of fix and purges expired data, as pg-boss jobs.
+- See the [Cal Hacks log](hackathon.md) for the M0 build and its commit history.
 
 ## Fresh clone
 
-Requires Node 24 (pinned in `.nvmrc`) and npm. Convex's local backend runs `"use node"` actions only on Node 20, 22 or 24. If your system Node is a different version, install [nvm](https://github.com/nvm-sh/nvm) and run `nvm install 24`. `npm run dev` and `scripts/worktree-setup.sh` then switch to Node 24 on their own, through `scripts/with-node.sh`. For other Convex commands, prefix them: `scripts/with-node.sh npx convex dev --once`.
+Requires Node 24 (pinned in `.nvmrc`), npm and Docker.
 
 ```bash
 npm install
 cp .env.example .env.local      # then fill in the values
-npm run dev                     # Next.js on :3000 and `convex dev`, together
+docker compose up -d --wait postgres minio
+npm run db:migrate              # applies drizzle/ to the database in .env.local
+npm run dev                     # Next.js on :3000
+npm run worker                  # in a second terminal: screening, fix checks, the nightly purge
 ```
 
-The first `npm run dev` asks you to log in to Convex and pick or create a project. It writes `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to `.env.local`.
-
-Put the server keys on the Convex deployment (they are read by Convex actions, never by the browser):
-
-```bash
-scripts/convex-env.sh           # the deployment .env.local points at
-scripts/convex-env.sh --prod    # the production deployment
-```
+Server keys (`GEMINI_API_KEY`, `GOOGLE_GEOCODING_KEY`, `ADMIN_PASSCODE`) go in `.env.local`. They are read by the server and worker, never by the browser.
 
 ## Self-hosting (docker compose)
 
-The whole stack runs on one machine with Docker (GOVTOK_DECISIONS.md §1.1.1). This is how a city IT team will run GovTok themselves. Until US40 lands, the screens still read from Convex, so a fresh stack serves the app shell and the camera but no data unless `NEXT_PUBLIC_CONVEX_URL` points at a Convex deployment:
+The whole stack runs on one machine with Docker (GOVTOK_DECISIONS.md §1.1.1). This is how a city IT team will run GovTok themselves. A fresh clone needs no other account or CLI:
 
 ```bash
 docker compose up -d --build    # first build takes a few minutes
 ```
+
+The feed is empty until it is seeded: open `/admin/seed`, sign in with `ADMIN_PASSCODE`, and seed the samples (see the demo runbook). Screening needs `GEMINI_API_KEY` in `.env`.
 
 Then open https://localhost. Caddy signs `localhost` with its own CA, so the browser warns once (or trust Caddy's root: `docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt .`).
 
@@ -128,7 +127,6 @@ Settings go in a `.env` file next to `docker-compose.yml`. Nothing is required f
 | `GEMINI_API_KEY`, `GEMINI_MODEL`, `GOOGLE_GEOCODING_KEY` | | Worker only |
 | `ADMIN_PASSCODE` | | App only |
 | `NEXT_PUBLIC_GOOGLE_MAPS_KEY`, `NEXT_PUBLIC_GOOGLE_MAP_ID` | | Build time (baked into the browser bundle) |
-| `NEXT_PUBLIC_CONVEX_URL` | `http://127.0.0.1:3210` | Build time. Until US40 the screens still read from Convex |
 
 Server code reads its own variables (`npm run dev`, `npm run worker`, `npm run db:migrate` read them from `.env.local`):
 
@@ -141,7 +139,7 @@ Server code reads its own variables (`npm run dev`, `npm run worker`, `npm run d
 
 Uploads: `createUploadUrl(contentType, uploader)` records who asked for each key in the `uploads` table. Public URLs carry object keys, so anyone can copy one: check `isUploadedBy(key, caller)` before saving a key from a request on a report or fix.
 
-Jobs: `enqueue(name, payload, { delaySeconds, tx })`. Pass `tx` when the job reads rows the same transaction writes, so the job exists only if they commit. Jobs aren't retried (as with Convex actions); a handler that wants another try enqueues one itself.
+Jobs: `enqueue(name, payload, { delaySeconds, tx })`. Pass `tx` when the job reads rows the same transaction writes, so the job exists only if they commit. Jobs aren't retried; a handler that wants another try enqueues one itself.
 
 Schema changes: edit `server/db/schema.ts` (US33 owns it), run `npm run db:generate`, and commit the new file in `drizzle/`. `npm run db:migrate` applies it, and the compose `migrate` service does too on every `up`.
 
@@ -149,9 +147,10 @@ Schema changes: edit `server/db/schema.ts` (US33 owns it), run `npm run db:gener
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Next.js and Convex together |
-| `npm test` | Vitest: `convex-test` for Convex functions, and `tests/server/` on PGlite (in-process Postgres with the migrations applied, no Docker). MinIO and pg-boss are in-memory fakes there (`tests/server/fakes.ts`): `putTestObject` stands in for a browser upload, and `enqueuedJobs` lists what was queued |
+| `npm run dev` | Next.js |
+| `npm test` | Vitest: `tests/server/` on PGlite (in-process Postgres with the migrations applied, no Docker). MinIO and pg-boss are in-memory fakes there (`tests/server/fakes.ts`): `putTestObject` stands in for a browser upload, and `enqueuedJobs` lists what was queued |
 | `npm run worker` | The pg-boss job worker |
+| `npm run impact` | Print the impact stats: days to a verified fix per agency, and the open and fixed counts |
 | `npm run db:generate` | A new migration in `drizzle/` from `server/db/schema.ts` |
 | `npm run db:migrate` | Apply the migrations to `DATABASE_URL` |
 | `npm run test:browser` | Media tests in headless Chromium (`tests/browser/`). First run: `npx playwright install chromium` |
@@ -168,36 +167,17 @@ Schema changes: edit `server/db/schema.ts` (US33 owns it), run `npm run db:gener
 | `components/` | `capture/` (camera and recorder), `feed/`, `map/`, `post/`, `fix/`, `me/` |
 | `lib/media/` | In-browser clip conversion, frame grabs and photo prep |
 | `lib/hooks/` | Resident and fixer tokens, location, demo mode, the clip recorder |
-| `convex/` | Schema, queries, mutations and actions. `screening.ts` and `fixVerification.ts` call Claude |
-| `convex/lib/` | Prompts, routing, the active city, geo, limits and Gemini transcription |
-| `server/` | Self-hosted backend: `db/` (Drizzle schema and client), `storage.ts` (MinIO: presigned upload/download URLs, stat, read, delete, and `isUploadedBy`), `jobs.ts` (pg-boss: `enqueue`, optionally in the caller's transaction, `schedule`, `work`) |
+| `server/` | Self-hosted backend: `db/` (Drizzle schema and client), `storage.ts` (MinIO: presigned upload/download URLs, stat, read, delete, and `isUploadedBy`), `jobs.ts` (pg-boss: `enqueue`, optionally in the caller's transaction, `schedule`, `work`). `lib/` holds the prompts, routing, the active city, geo, limits and Gemini transcription; `jobs/` the screening, fix-check, purge and seed handlers |
 | `worker/` | The job worker and its name → handler map |
 | `drizzle/` | SQL migrations, generated from `server/db/schema.ts` |
 | `tests/` | Vitest, mirroring the source tree. `tests/browser/` runs in Chromium, `tests/server/` on PGlite |
-| `scripts/` | Node switching, Convex env sync, worktree setup, the Vercel build |
+| `scripts/` | Worktree setup, the impact stats, bundle check, and the Gemini eval and try-out scripts |
 
-## Deploy (Vercel + Convex production)
+## Deploy
 
-Every push builds on Vercel through `scripts/vercel-build.sh` (the `buildCommand` in `vercel.json`):
+Production is the compose stack on a server: set `DOMAIN`, `TLS` and the passwords in `.env` (see "Self-hosting"), then `docker compose up -d --build`. Caddy serves HTTPS, so the phone camera works. Server keys (`GEMINI_API_KEY`, `GOOGLE_GEOCODING_KEY`, `ADMIN_PASSCODE`) go in the same `.env`.
 
-| Push | Vercel env | What runs |
-|---|---|---|
-| `main` (the Production Branch) | `production` | `npx convex deploy --cmd 'npm run build'`: pushes Convex functions and schema to prod (authenticated by `CONVEX_DEPLOY_KEY`), then builds Next.js against it |
-| any other branch | `preview` | `npm run build` only, against prod Convex. You get an HTTPS preview URL for phone testing. |
-
-Previews read and write prod data but never push functions or schema, so parallel branches can't overwrite prod or each other. A branch's new Convex functions reach prod only when it merges, so preview pages that call them will error until then.
-
-Vercel environment variables:
-
-| Key | Production | Preview |
-|---|---|---|
-| `CONVEX_DEPLOY_KEY` | ✓ | ✗ never |
-| `NEXT_PUBLIC_CONVEX_URL` | ✗ (the build sets it) | ✓ prod Convex URL |
-| `NEXT_PUBLIC_GOOGLE_MAPS_KEY`, `NEXT_PUBLIC_GOOGLE_MAP_ID` | ✓ | ✓ |
-
-Server keys go on the Convex production deployment with `scripts/convex-env.sh --prod` (from the main checkout).
-
-`/dev/camera` opens the rear camera, to check the HTTPS deploy on a phone. `/dev/recorder` records with the shared recorder, sound on or off, and shows what it hands back. Both ship to prod and previews, unlinked and `noindex`. Hide or remove them before submission.
+`/dev/camera` opens the rear camera, to check the HTTPS deploy on a phone. `/dev/recorder` records with the shared recorder, sound on or off, and shows what it hands back. Both ship to prod, unlinked and `noindex`. Hide or remove them before submission.
 
 ## Worktrees (parallel cards)
 
@@ -207,13 +187,9 @@ Every worktree shares one local Postgres and MinIO (the compose project is named
 scripts/worktree-setup.sh
 ```
 
-It starts `postgres` and `minio` if they aren't running, creates a database and bucket named after the card (`govtok_us33`, `govtok-us33`), writes `DATABASE_URL` and `S3_*` to the worktree's `.env.local`, and applies the migrations. It's safe to re-run, and it doesn't need Docker for the Convex step. It refuses to run in the main checkout, whose `.env.local` it would otherwise rewrite. The main checkout uses the stack's default database and bucket: `DATABASE_URL=postgres://govtok:govtok@127.0.0.1:15432/govtok`, `S3_ENDPOINT` and `S3_PUBLIC_URL` `http://127.0.0.1:19000`, `S3_BUCKET=govtok`, and the app's MinIO user: `S3_ACCESS_KEY=govtok-app`, `S3_SECRET_KEY=govtok-app-dev-secret`.
+It starts `postgres` and `minio` if they aren't running, creates a database and bucket named after the card (`govtok_us33`, `govtok-us33`), writes `DATABASE_URL` and `S3_*` to the worktree's `.env.local`, and applies the migrations. It's safe to re-run. It refuses to run in the main checkout, whose `.env.local` it would otherwise rewrite. The main checkout uses the stack's default database and bucket: `DATABASE_URL=postgres://govtok:govtok@127.0.0.1:15432/govtok`, `S3_ENDPOINT` and `S3_PUBLIC_URL` `http://127.0.0.1:19000`, `S3_BUCKET=govtok`, and the app's MinIO user: `S3_ACCESS_KEY=govtok-app`, `S3_SECRET_KEY=govtok-app-dev-secret`.
 
 Because the stack is shared, `docker compose down -v` from any worktree deletes every worktree's databases and buckets. Use `docker compose stop` instead. `docker compose up` from a worktree replaces the `app` and `worker` another worktree built.
-
-Until US40 removes Convex, it first gives the worktree its own local Convex deployment: it removes `CONVEX_DEPLOYMENT` and the related URLs from `.env.local`, starts a fresh anonymous local deployment, copies the server keys onto it with `convex-env.sh`, and exits with an error if the result is not a local deployment.
-
-Only the Vercel Production build holds `CONVEX_DEPLOY_KEY`.
 
 ## Environment variables
 
@@ -221,11 +197,11 @@ See [.env.example](.env.example), and the tables under "Self-hosting" for the co
 
 ## Demo runbook
 
-The stage flow is in GOVTOK_DECISIONS.md §6.1.1. Everything below runs against **prod**, after the branch has merged. Add `--prod` to every `npx convex run`.
+The stage flow is in GOVTOK_DECISIONS.md §6.1.1. Everything below runs against the deployed stack, after the branch has merged.
 
 The app runs as one city at a time: `ACTIVE_CITY` in `server/lib/city.ts`. **Cal Hacks (Oct 25) runs as San Francisco**, demoed at the Palace of Fine Arts. That one constant sets the routing table (SF Public Works, SFMTA, SFPUC, PG&E, Recology), the Claude prompts, the map center, `DEMO_POINT` (Baker St beside the Palace) and the seed presets. Demo mode is `?demo=sf`.
 
-**For Mableton demo day (Oct 30):** set `ACTIVE_CITY = MABLETON`, then update the two tests pinned to Cal Hacks (`tests/server/lib/routing.test.ts`, `tests/app/admin/seed/presets.test.ts`) and merge. Demo mode becomes `?demo=mableton`. Reports seeded under SF keep their SF agencies, so delete them or re-seed.
+**Oct 30 (Mableton demo day) also runs as San Francisco**, since the data is SF's: leave `ACTIVE_CITY` as it is and use `?demo=sf`.
 
 ### 1. Seed (the night before)
 
@@ -283,8 +259,7 @@ by the nightly purge once they are over seven days old.
 
 This is a protected test page, not the production report-screening flow.
 
-To transcribe clips from the command line, make sure the selected Convex
-deployment has `GEMINI_API_KEY` (or export it), then run:
+To transcribe clips from the command line, export `GEMINI_API_KEY` (and `GEMINI_MODEL`, if you don't want the default), then run:
 
 ```bash
 npx tsx scripts/try-transcribe.ts path/to/clip.mp4 [more.webm ...]

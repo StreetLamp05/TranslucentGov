@@ -14,7 +14,7 @@ import { createUploadUrl, isUploadedBy, statObject, type Uploader } from "./stor
 // Proof of fix (§4.3.1, §4.3.2). Files are uploaded first (createProofUploadUrl, a presigned PUT
 // to MinIO), then submitFix saves the attempt as `checking` and queues verifyFix (US36), which
 // closes the report on `verified`. A fixer passes `as: "fixer"` and their fixer token; a neighbor
-// passes `as: "resident"` and their device token. Ports convex/fixes.ts; routes are app/api/fixes/.
+// passes `as: "resident"` and their device token. Routes are app/api/fixes/.
 
 /** Who is submitting or reading an attempt: a fixer or a neighbor, by row id. */
 export type By = { kind: "fixer" | "resident"; id: string };

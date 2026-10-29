@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import RevealPlayer, { PHOTO_HOLD_MS, STAMP_MS, stampText, type RevealReport } from "../../components/RevealPlayer";
+import RevealPlayer, { PHOTO_HOLD_MS, RevealPausedContext, STAMP_MS, stampText, type RevealReport } from "../../components/RevealPlayer";
 import { SoundProvider } from "../../lib/hooks/sound";
 
 const DAY_MS = 86_400_000;
@@ -64,6 +64,52 @@ const phase = () => fixClip().dataset.phase;
 const stamp = () => screen.queryByTestId("fixed-stamp");
 const ended = (el: HTMLVideoElement) => act(() => void el.dispatchEvent(new Event("ended")));
 const wait = (ms: number) => act(() => void vi.advanceTimersByTime(ms));
+
+describe("paused by the feed (tap to pause)", () => {
+  const paused = (r: RevealReport, slot: Slot, on: boolean) => (
+    <RevealPausedContext.Provider value={on}>{player(r, slot)}</RevealPausedContext.Provider>
+  );
+
+  test("the stamp freezes while paused and carries on with the time it had left", () => {
+    const video = pooled();
+    const { rerender } = render(paused(report(), { video }, false));
+    ended(video);
+    wait(300);
+    rerender(paused(report(), { video }, true));
+    wait(10_000);
+    expect(phase()).toBe("stamp");
+    expect(stamp()).not.toBeNull();
+
+    rerender(paused(report(), { video }, false));
+    wait(STAMP_MS - 300 - 1);
+    expect(phase()).toBe("stamp");
+    wait(1);
+    expect(phase()).toBe("fix");
+  });
+
+  test("a slideshow's hold freezes while paused, and resumes where it stopped", () => {
+    const r = report({ clipUrl: null });
+    const { rerender } = render(paused(r, { video: null }, false));
+    wait(1000);
+    rerender(paused(r, { video: null }, true));
+    wait(PHOTO_HOLD_MS * 3);
+    expect(phase()).toBe("original");
+
+    rerender(paused(r, { video: null }, false));
+    wait(PHOTO_HOLD_MS - 1000 - 1);
+    expect(phase()).toBe("original");
+    wait(1);
+    expect(phase()).toBe("stamp");
+  });
+
+  test("a tap while paused doesn't resume the original or touch the fix clip", () => {
+    const video = pooled();
+    render(paused(report(), { video }, true));
+    vi.spyOn(video, "paused", "get").mockReturnValue(true);
+    act(() => void fireEvent.click(document.body));
+    expect(plays).toHaveLength(0);
+  });
+});
 
 describe("state machine", () => {
   test("original → stamp → fix → original, around again", () => {

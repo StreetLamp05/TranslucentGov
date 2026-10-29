@@ -40,10 +40,10 @@ Todo user stories, ordered by milestone (earliest due first), then issue number.
 
 Cards are independent when they could be built at the same time from current main and merged in any order without one needing the other's code or producing merge conflicts.
 
-Launch one `Plan` agent (read-only; keeps the footprint research out of this context). Give it the repo path, every remaining candidate (number, title, body, Spec §), and every story already In Development/Testing with its branch's actual footprint (`git diff --stat origin/main...origin/<branch>`). Ask it to read each card's spec section and the merged sibling precedent, then return, per card: predicted files/directories touched, whether it changes `convex/schema.ts`, and whether it changes Convex function signatures (which regenerates `convex/_generated`). Then a list of conflicting pairs, each with its reason. Pairs conflict when they:
+Launch one `Plan` agent (read-only; keeps the footprint research out of this context). Give it the repo path, every remaining candidate (number, title, body, Spec §), and every story already In Development/Testing with its branch's actual footprint (`git diff --stat origin/main...origin/<branch>`). Ask it to read each card's spec section and the merged sibling precedent, then return, per card: predicted files/directories touched, and whether it changes `server/db/schema.ts` (which adds a `drizzle/` migration). Then a list of conflicting pairs, each with its reason. Pairs conflict when they:
 - touch the same files or the same component tree (siblings under one Feature often do — e.g. multiple kanban stories all editing the board component),
-- both change `convex/schema.ts` (schema conflicts, and the dev deployment can only hold one schema),
-- both change the same Convex functions (`convex/_generated` conflicts),
+- both change `server/db/schema.ts` (their `drizzle/` migrations conflict),
+- both change the same server function or route handler,
 - have one building on behavior the other introduces, even with no dependency link.
 
 Candidates that conflict with an in-flight story are out. From the rest, greedily take candidates in step-3 order, skipping any that conflict with one already picked. Take every candidate that fits; never pick a conflicting card.
@@ -96,10 +96,8 @@ Then prepare the worktree, which doesn't have the main checkout's untracked file
 tmux has-session -t gt-cards 2>/dev/null || tmux new-session -d -s gt-cards -n main -c "$PWD"
 tmux set-option -t gt-cards remain-on-exit on
 tmux new-window -t gt-cards -n <CardID> -c "<worktree-path>" \
-  "scripts/with-node.sh claude --model sonnet --effort medium --remote-control=<CardID> --permission-mode auto 'Run /run-card for issue #<n>'"
+  "claude --model sonnet --effort medium --remote-control=<CardID> --permission-mode auto 'Run /run-card for issue #<n>'"
 ```
-
-`scripts/with-node.sh` starts the runner on the repo's pinned Node (`.nvmrc`), so every `convex dev` it runs can push `"use node"` actions to the local backend.
 
 Runners use Sonnet at medium effort (the user's call, 2026-10-28, to cut usage). Most cards are ports or features with spelled-out ACs. If a card is unusually open-ended, ask the user in step 5 whether it should get the default model instead.
 

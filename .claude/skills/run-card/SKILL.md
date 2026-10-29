@@ -28,9 +28,9 @@ Invoke the `start-card` skill (via `Skill`, passing through any issue number/slu
 
 ## 2. Implement and verify
 
-Build the card per the plan, tracking progress in `tasks/<CardID>-todo.md`. Before handing off, prove it works per the global "Verification Before Done" rule: run the relevant build, type check, tests (and a Convex push for schema/function changes). If something fails and the fix isn't determinable from the code/spec, ping and ask rather than pushing through.
+Build the card per the plan, tracking progress in `tasks/<CardID>-todo.md`. Before handing off, prove it works per the global "Verification Before Done" rule: run the relevant build, type check and tests (and, for schema changes, `npm run db:generate` plus `npm run db:migrate` against the worktree's database). If something fails and the fix isn't determinable from the code/spec, ping and ask rather than pushing through.
 
-Other `run-card` sessions may be running in sibling worktrees (see `dispatch-cards`). Never push a worktree's functions or schema to the shared Convex cloud dev deployment, because each push replaces the others'. Use a local Convex deployment per worktree (see `npx convex dev --help`). If that isn't set up yet, serialize pushes with `flock /tmp/govtok-convex.lock <command>` and say so in the report.
+Other `run-card` sessions may be running in sibling worktrees (see `dispatch-cards`). Each worktree has its own database and bucket in the shared compose stack: run `scripts/worktree-setup.sh` once, and never point a worktree at another's `DATABASE_URL` or bucket. Don't run `docker compose down -v`, which wipes every worktree's data.
 
 Do **not** commit or push — git is manual for this user.
 

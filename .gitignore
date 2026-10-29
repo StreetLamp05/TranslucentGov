@@ -1,11 +1,8 @@
-# Secrets (`npx convex dev` writes CONVEX_DEPLOYMENT to .env.local)
+# Secrets
 .env
 .env.*
 *.env
 !.env.example
-
-# Local Convex deployment state (one per worktree, see scripts/worktree-setup.sh)
-.convex/
 
 # Dependencies
 node_modules/

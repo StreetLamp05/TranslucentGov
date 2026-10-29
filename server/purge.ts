@@ -6,7 +6,7 @@ import { deleteObject } from "./storage";
 // Retention (§7.1.1): held reports and unverified fix attempts are deleted 7 days after they
 // were posted, with their MinIO objects. Published reports (open / fixed), samples and verified
 // attempts are kept. Intake videos (/admin/video-intake) also go after 7 days, and expired admin
-// sessions are cleared. Ports convex/purge.ts and videoIntake.purgeExpired; the nightly job is
+// sessions are cleared. The nightly job is
 // server/jobs/purgeExpired.ts.
 export const PURGE_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 export const INTAKE_RETENTION_MS = PURGE_AFTER_MS;

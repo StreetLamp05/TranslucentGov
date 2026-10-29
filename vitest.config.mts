@@ -9,11 +9,9 @@ export default defineConfig({
         extends: true,
         test: {
           name: "app",
-          environment: "edge-runtime",
-          server: { deps: { inline: ["convex-test"] } },
+          environment: "node",
           // Client tests opt into jsdom with a `// @vitest-environment jsdom` docblock.
-          // convex/placeholder.test.ts goes with the placeholder in a follow-up; everything else lives in tests/.
-          include: ["tests/**/*.test.{ts,tsx}", "convex/**/*.test.ts"],
+          include: ["tests/**/*.test.{ts,tsx}"],
           // Real-browser tests run under vitest.browser.config.mts (`npm run test:browser`).
           exclude: ["tests/browser/**", "tests/server/**", "**/node_modules/**"],
         },

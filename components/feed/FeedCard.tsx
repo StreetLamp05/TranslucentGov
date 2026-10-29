@@ -7,7 +7,7 @@ import CardReveal from "./CardReveal";
 // What every card slot gets.
 // - `active`: this card is the one on screen (the one that plays).
 // - `near`: within one card of the screen. Load media (slideshow photos, a fix clip) only when
-//   near, so nothing past the next card preloads (Convex's free file bandwidth is small).
+//   near, so nothing past the next card preloads (file bandwidth is limited).
 // - `video`: the pooled <video> playing this card's clip, or null when the card has none or
 //   isn't near.
 export type FeedSlotProps = {
@@ -43,7 +43,7 @@ export default function FeedCard({ index, ...slot }: Props) {
       className="relative h-full w-full snap-start snap-always overflow-hidden bg-black"
     >
       {near && poster && (
-        // Convex storage URLs, so not next/image.
+        // MinIO URLs, so not next/image.
         // eslint-disable-next-line @next/next/no-img-element
         <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover" />
       )}

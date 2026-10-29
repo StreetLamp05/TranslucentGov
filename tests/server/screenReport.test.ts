@@ -220,6 +220,16 @@ describe("screenReport geocoding", () => {
     expect((await read()).status).toBe("open");
   });
 
+  test("a retry after a failed geocode tries Google again", async () => {
+    geocode.mockRejectedValueOnce(new Error("network down"));
+    screenPost.mockRejectedValueOnce(new Error("socket hang up")).mockResolvedValueOnce(result("pass"));
+    const { screen, read, runRetry } = await setup();
+    await screen();
+    await runRetry();
+    expect(geocode).toHaveBeenCalledTimes(2);
+    expect(await read()).toMatchObject({ status: "open", street: "Floyd Rd" });
+  });
+
   test("a rescreen reuses the stored street instead of geocoding again (§1.1.2)", async () => {
     screenPost.mockResolvedValue(result("reject"));
     const { reportId, screen, read } = await setup();

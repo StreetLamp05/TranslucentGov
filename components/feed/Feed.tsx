@@ -7,6 +7,8 @@ import { useLive } from "@/lib/data/useLive";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
 import { useDemoMode } from "@/lib/hooks/useDemoMode";
 import FeedCard from "./FeedCard";
+import { RevealPausedContext } from "@/components/RevealPlayer";
+import PausedIcon from "./PausedIcon";
 
 // Pooled <video> elements. Card k always uses slot k % 3, so {previous, on screen, next} never
 // collide and a slot keeps its element as cards scroll past. Only `src` and position change,
@@ -46,6 +48,19 @@ export default function Feed({ firstId }: { firstId?: string }) {
     root.querySelectorAll("article[data-index]").forEach((card) => observer.observe(card));
     return () => observer.disconnect();
   }, [count]);
+
+  // The user paused the card on screen with a tap. A swipe to another card clears it, so the new
+  // card plays and a paused card resumes when the user comes back. The ref is for event handlers.
+  const [paused, setPaused] = useState(false);
+  const pausedRef = useRef(false);
+  const [pausedOn, setPausedOn] = useState(active);
+  if (active !== pausedOn) {
+    setPausedOn(active);
+    setPaused(false);
+  }
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   const [videos, setVideos] = useState<(HTMLVideoElement | null)[]>(() => Array(POOL_SIZE).fill(null));
   const videoRefs = useMemo(
@@ -99,8 +114,9 @@ export default function Feed({ firstId }: { firstId?: string }) {
       if (!el || k === null) return;
       el.preload = k === active - 1 ? "none" : "auto";
       el.muted = mutedFor(reports![k], el);
-      if (k === active) play(el);
-      else if (!el.paused || el.currentTime > 0) {
+      if (k === active) {
+        if (!pausedRef.current) play(el);
+      } else if (!el.paused || el.currentTime > 0) {
         el.pause();
         el.currentTime = 0; // off-screen cards show frame 0
       }
@@ -120,7 +136,7 @@ export default function Feed({ firstId }: { firstId?: string }) {
       const k = slots[slot];
       if (k !== null) el.muted = mutedFor(reports![k], el);
       if (k === active) {
-        if (el.paused && el.loop) play(el);
+        if (el.paused && el.loop && !pausedRef.current) play(el);
         return;
       }
       el.play().catch(() => {});
@@ -129,6 +145,41 @@ export default function Feed({ firstId }: { firstId?: string }) {
   };
   const onUnlock = useEffectEvent(applySound);
   useLayoutEffect(() => onUnlock(), [unlocked]);
+
+  // Tap to pause and resume (§5.1.1). What a pause stops on the card on screen: the pooled
+  // original, and the fix clip of a fixed card (CardReveal's, found by its test id).
+  const playTargets = () => {
+    const original = slots[active % POOL_SIZE] === active ? videos[active % POOL_SIZE] : null;
+    const fix = scroller.current?.querySelector<HTMLVideoElement>(`article[data-index="${active}"] [data-testid="fix-clip"]`);
+    return { original, fix: fix ?? null };
+  };
+  // The first tap only turns sound on (the unlock) and keeps playing. Later taps on the video
+  // toggle it; taps on buttons and links do not.
+  const tapped = useRef(false);
+  const onTap = (e: React.MouseEvent) => {
+    const { original, fix } = playTargets();
+    // A tap on a button doesn't use up the first tap.
+    if ((e.target as Element).closest("button, a, input, select, textarea, [role=button]")) {
+      applySound();
+      return;
+    }
+    const first = !tapped.current;
+    tapped.current = true;
+    if (first || (!original && !fix)) {
+      applySound();
+      return;
+    }
+    if (pausedRef.current) {
+      // A fix clip mid-play resumes; otherwise the original, unless it has ended (stamp phase).
+      if (fix?.dataset.phase === "fix") fix.play().catch(() => {});
+      else if (original && !original.ended) play(original);
+    } else {
+      original?.pause();
+      fix?.pause();
+    }
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+  };
 
   // Below the demo banner (26px, sticky at the top) so it doesn't cover the top of the card.
   const frame = `fixed inset-x-0 bottom-16 mx-auto max-w-md bg-black ${useDemoMode() ? "top-[26px]" : "top-0"}`;
@@ -144,31 +195,34 @@ export default function Feed({ firstId }: { firstId?: string }) {
     <div
       ref={scroller}
       // A first swipe flips the unlock, but iOS doesn't count a swipe as a gesture. A later tap does.
-      onClick={applySound}
+      onClick={onTap}
       className={`${frame} snap-y snap-mandatory overflow-y-scroll overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
     >
-      {reports.map((report, k) => (
-        <FeedCard
-          key={report._id}
-          report={report}
-          index={k}
-          active={k === active}
-          near={Math.abs(k - active) <= 1}
-          video={slots.includes(k) ? videos[k % POOL_SIZE] : null}
-        />
-      ))}
-      {slots.map((k, slot) => (
-        <video
-          key={slot}
-          ref={videoRefs[slot]}
-          data-report-id={k === null ? undefined : reports[k]._id}
-          aria-hidden="true"
-          playsInline
-          muted
-          className={`pointer-events-none absolute inset-x-0 z-[1] h-full w-full object-cover ${k === null ? "hidden" : ""}`}
-          style={{ top: `${(k ?? 0) * 100}%` }}
-        />
-      ))}
+      <RevealPausedContext.Provider value={paused}>
+        {reports.map((report, k) => (
+          <FeedCard
+            key={report._id}
+            report={report}
+            index={k}
+            active={k === active}
+            near={Math.abs(k - active) <= 1}
+            video={slots.includes(k) ? videos[k % POOL_SIZE] : null}
+          />
+        ))}
+        {paused && <PausedIcon top={`${active * 100}%`} />}
+        {slots.map((k, slot) => (
+          <video
+            key={slot}
+            ref={videoRefs[slot]}
+            data-report-id={k === null ? undefined : reports[k]._id}
+            aria-hidden="true"
+            playsInline
+            muted
+            className={`pointer-events-none absolute inset-x-0 z-[1] h-full w-full object-cover ${k === null ? "hidden" : ""}`}
+            style={{ top: `${(k ?? 0) * 100}%` }}
+          />
+        ))}
+      </RevealPausedContext.Provider>
     </div>
   );
 }

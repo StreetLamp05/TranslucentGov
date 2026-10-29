@@ -1,5 +1,5 @@
 // Capture limits (§4.1.1): 720p at about 1.5 Mbps for 20 s comes to roughly 4 MB per clip,
-// well under the 25 MB clip limit (§1.1.4) and Convex's 2-minute upload timeout (§1.1.1).
+// well under the 25 MB clip limit (§1.1.4) and the upload time a phone connection allows.
 export const MAX_RECORD_MS = 20_000;
 // Stop stays disabled this long after Record, so a double tap can't make an empty clip.
 export const MIN_RECORD_MS = 1_000;
