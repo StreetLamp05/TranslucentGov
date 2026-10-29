@@ -14,6 +14,16 @@ describe("screeningErrorSummary", () => {
       "Groq transcription failed (429). Retry after 7 seconds.",
     ],
     [
+      "a Gemini API error drops the SDK's JSON and closes the bracket",
+      'Gemini request failed (500: {"error":{"code":500,"message":"Internal error","status":"INTERNAL"}})',
+      "Gemini request failed (500)",
+    ],
+    [
+      "a Gemini rate limit drops the RetryInfo body",
+      'Gemini rate limited: {"error":{"code":429,"status":"RESOURCE_EXHAUSTED","details":[{"retryDelay":"7s"}]}}',
+      "Gemini rate limited",
+    ],
+    [
       "a Claude API error drops the SDK's JSON and closes the bracket",
       'Claude request failed (500: 500 {"type":"error","error":{"type":"api_error"},"request_id":"req_123"})',
       "Claude request failed (500: 500)",

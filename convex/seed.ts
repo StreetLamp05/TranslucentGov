@@ -14,7 +14,7 @@ import { mediaTypeValidator } from "./schema";
 
 declare const process: { env: { ADMIN_PASSCODE?: string } };
 
-// Batches are screened 10 s apart, so they stay under Anthropic's tokens-per-minute limit.
+// Batches are screened 10 s apart, so they stay under the model API's tokens-per-minute limit.
 export const SCREEN_STAGGER_MS = 10_000;
 // A seed fix waits for its report's screening, checking this often for up to 10 minutes.
 export const POLL_MS = 10_000;

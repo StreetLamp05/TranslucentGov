@@ -1,5 +1,5 @@
 // Runs checkFix over the US3 before/after pairs and prints expected vs actual (§4.3.1).
-// Calls the real Anthropic API (about $0.04 per pair on Opus 5.5).
+// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in convex/lib/gemini.ts).
 //
 // Usage: npx tsx --env-file=.env.local scripts/eval-fix.ts [path/to/fix-pairs.json]
 //
@@ -15,7 +15,7 @@
 // fails the run, so a file in some other shape can't pass as "0/0 match".
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ImageMediaType } from "../convex/lib/claude";
+import type { ImageMediaType } from "../convex/lib/gemini";
 import { checkFix, type FixInput, type FixResult } from "../convex/lib/fixPrompt";
 
 type Pair = {
@@ -32,13 +32,12 @@ const MEDIA_TYPES: Record<string, ImageMediaType> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
-  ".gif": "image/gif",
   ".webp": "image/webp",
 };
 
 function loadImage(file: string) {
   const mediaType = MEDIA_TYPES[path.extname(file).toLowerCase()];
-  if (!mediaType) throw new Error(`${file}: not an image (jpg, png, gif or webp)`);
+  if (!mediaType) throw new Error(`${file}: not an image (jpg, png or webp)`);
   return { mediaType, data: readFileSync(file).toString("base64") };
 }
 

@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { ClaudeError } from "../../convex/lib/claude";
+import { GeminiError } from "../../convex/lib/gemini";
 import { ROUTING, type Category } from "../../convex/lib/routing";
 import { MAX_SCREENING_ERROR_LENGTH, SCREENING_FAILED_REASON } from "../../convex/lib/screening";
 import type { ScreenResult } from "../../convex/lib/screenPrompt";
@@ -258,9 +258,9 @@ describe("screenReport guards", () => {
 });
 
 describe("screenReport retry", () => {
-  test("a Claude 429 retries once after retry-after, and the retry can succeed", async () => {
+  test("a Gemini 429 retries once after its retry delay, and the retry can succeed", async () => {
     screenPost
-      .mockRejectedValueOnce(new ClaudeError("rate_limited", "Claude rate limited", 3000))
+      .mockRejectedValueOnce(new GeminiError("rate_limited", "Gemini rate limited", 3000))
       .mockResolvedValueOnce(result("pass"));
     const { reportId, screen, read, scheduled, runScheduled } = await setup();
     await screen();
@@ -290,7 +290,7 @@ describe("screenReport retry", () => {
   });
 
   test("a second failure holds the report with reason \"screening failed\"", async () => {
-    screenPost.mockRejectedValue(new ClaudeError("api", "Claude request failed (500)"));
+    screenPost.mockRejectedValue(new GeminiError("api", "Gemini request failed (500)"));
     const { screen, read, scheduled, runScheduled } = await setup();
     await screen();
     await runScheduled();
@@ -302,7 +302,7 @@ describe("screenReport retry", () => {
     expect(report).toMatchObject({
       status: "held",
       reason: SCREENING_FAILED_REASON,
-      screeningError: "Claude request failed (500)",
+      screeningError: "Gemini request failed (500)",
     });
     expect(report.verdict).toBeUndefined();
   });

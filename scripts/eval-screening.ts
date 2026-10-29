@@ -1,5 +1,5 @@
 // Runs screenPost over the US3 screening fixtures and prints expected vs actual (§4.2.1).
-// Calls the real Anthropic API (about $0.03 per case on Opus 5.5).
+// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in convex/lib/gemini.ts).
 //
 // Usage: npx tsx --env-file=.env.local scripts/eval-screening.ts [path/to/labels.json]
 //
@@ -12,7 +12,7 @@
 // run, so a labels.json in some other shape can't pass as "0/0 match".
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ImageMediaType } from "../convex/lib/claude";
+import type { ImageMediaType } from "../convex/lib/gemini";
 import { screenPost, type ScreenResult } from "../convex/lib/screenPrompt";
 
 type Case = {
@@ -28,13 +28,12 @@ const MEDIA_TYPES: Record<string, ImageMediaType> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
-  ".gif": "image/gif",
   ".webp": "image/webp",
 };
 
 function loadImage(file: string) {
   const mediaType = MEDIA_TYPES[path.extname(file).toLowerCase()];
-  if (!mediaType) throw new Error(`${file}: not an image (jpg, png, gif or webp)`);
+  if (!mediaType) throw new Error(`${file}: not an image (jpg, png or webp)`);
   return { mediaType, data: readFileSync(file).toString("base64") };
 }
 

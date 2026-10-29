@@ -191,7 +191,7 @@ function AttemptResult({
   );
 
   if (attempt === undefined || attempt?.status === "checking") {
-    return <Checking text="Claude is comparing your clip with the original. This takes a few seconds." />;
+    return <Checking text="Comparing your clip with the original. This takes a few seconds." />;
   }
   if (attempt === null) return <Result title="We couldn't find this fix">{tryAgain}</Result>;
 
@@ -199,7 +199,7 @@ function AttemptResult({
     case "verified":
       return (
         <Result title="Fix verified">
-          <p className="text-sm text-[#46505C]">Claude matched your clip to the original. The report is now fixed.</p>
+          <p className="text-sm text-[#46505C]">Your clip matches the original. The report is now fixed.</p>
           {feedLink}
         </Result>
       );
