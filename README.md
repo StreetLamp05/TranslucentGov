@@ -93,12 +93,67 @@ scripts/convex-env.sh           # the deployment .env.local points at
 scripts/convex-env.sh --prod    # the production deployment
 ```
 
+## Self-hosting (docker compose)
+
+The whole stack runs on one machine with Docker (GOVTOK_DECISIONS.md §1.1.1). This is how a city IT team will run GovTok themselves. Until US40 lands, the screens still read from Convex, so a fresh stack serves the app shell and the camera but no data unless `NEXT_PUBLIC_CONVEX_URL` points at a Convex deployment:
+
+```bash
+docker compose up -d --build    # first build takes a few minutes
+```
+
+Then open https://localhost. Caddy signs `localhost` with its own CA, so the browser warns once (or trust Caddy's root: `docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt .`).
+
+| Service | What it is |
+|---|---|
+| `caddy` | HTTPS on ports 80/443. Routes `/<bucket>/*` to MinIO (presigned uploads and playback) and everything else to the app |
+| `app` | Next.js, `output: "standalone"` |
+| `worker` | pg-boss job runner (`worker/index.ts`) |
+| `postgres` | Postgres 17, data on the `postgres-data` volume |
+| `minio` | S3-compatible storage for videos and photos, data on the `minio-data` volume. The image is `pgsty/minio`, a maintained community build: MinIO stopped publishing images in 2025 |
+| `minio-init`, `migrate` | One-shot: create the bucket and the app's MinIO user (limited to the bucket), and apply the `drizzle/` migrations, then exit |
+
+Settings go in a `.env` file next to `docker-compose.yml`. Nothing is required for a local run: every value has a default. On a real server, change every password (`POSTGRES_PASSWORD`, `MINIO_ROOT_PASSWORD`, `S3_SECRET_KEY`) before setting `DOMAIN`. Use URL-safe characters (letters, digits, `-`, `_`): the Postgres password goes into `DATABASE_URL` as is. Caddy serves the bucket path publicly, and anyone with the defaults could read or delete every upload. `scripts/worktree-setup.sh` reads the same variables from the shell, not from `.env`, so export any you change there too.
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DOMAIN` | `localhost` | The site's domain |
+| `TLS` | `internal` | `internal` uses Caddy's own CA. On a server, set an email address and Caddy gets a Let's Encrypt certificate |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `govtok`, `govtok`, `govtok` | |
+| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | `govtok`, `govtok-dev-secret` | MinIO admin. Only `minio-init` and `worktree-setup.sh` use it |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY` | `govtok-app`, `govtok-app-dev-secret` | The app and worker's MinIO user. Its policy reaches only the bucket (and `<bucket>-*` worktree buckets): get, put, delete and list, no admin |
+| `S3_BUCKET` | `govtok` | |
+| `POSTGRES_PORT`, `MINIO_PORT` | `15432`, `19000` | Published on 127.0.0.1 only, for `npm run dev` and worktrees |
+| `HTTP_PORT`, `HTTPS_PORT` | `80`, `443` | With a non-default `HTTPS_PORT`, also set `S3_PUBLIC_URL` (e.g. `https://localhost:8443`) |
+| `S3_PUBLIC_URL` | `https://$DOMAIN` | Where phones reach storage. Override it when the site isn't on port 443 of `DOMAIN` |
+| `GEMINI_API_KEY`, `GEMINI_MODEL`, `GOOGLE_GEOCODING_KEY` | | Worker only |
+| `ADMIN_PASSCODE` | | App only |
+| `NEXT_PUBLIC_GOOGLE_MAPS_KEY`, `NEXT_PUBLIC_GOOGLE_MAP_ID` | | Build time (baked into the browser bundle) |
+| `NEXT_PUBLIC_CONVEX_URL` | `http://127.0.0.1:3210` | Build time. Until US40 the screens still read from Convex |
+
+Server code reads its own variables (`npm run dev`, `npm run worker`, `npm run db:migrate` read them from `.env.local`):
+
+| Variable | Used by |
+|---|---|
+| `DATABASE_URL` | `server/db`, `server/jobs` (pg-boss), `drizzle.config.ts` |
+| `S3_ENDPOINT` | `server/storage`: how the server reaches MinIO |
+| `S3_PUBLIC_URL` | `server/storage`: the origin presigned URLs point at, which phones must reach (Caddy's, in compose) |
+| `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION` (optional) | `server/storage` |
+
+Uploads: `createUploadUrl(contentType, uploader)` records who asked for each key in the `uploads` table. Public URLs carry object keys, so anyone can copy one: check `isUploadedBy(key, caller)` before saving a key from a request on a report or fix.
+
+Jobs: `enqueue(name, payload, { delaySeconds, tx })`. Pass `tx` when the job reads rows the same transaction writes, so the job exists only if they commit. Jobs aren't retried (as with Convex actions); a handler that wants another try enqueues one itself.
+
+Schema changes: edit `server/db/schema.ts` (US33 owns it), run `npm run db:generate`, and commit the new file in `drizzle/`. `npm run db:migrate` applies it, and the compose `migrate` service does too on every `up`.
+
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` | Next.js and Convex together |
-| `npm test` | Vitest + `convex-test` for Convex functions |
+| `npm test` | Vitest: `convex-test` for Convex functions, and `tests/server/` on PGlite (in-process Postgres with the migrations applied, no Docker). MinIO and pg-boss are in-memory fakes there (`tests/server/fakes.ts`): `putTestObject` stands in for a browser upload, and `enqueuedJobs` lists what was queued |
+| `npm run worker` | The pg-boss job worker |
+| `npm run db:generate` | A new migration in `drizzle/` from `server/db/schema.ts` |
+| `npm run db:migrate` | Apply the migrations to `DATABASE_URL` |
 | `npm run test:browser` | Media tests in headless Chromium (`tests/browser/`). First run: `npx playwright install chromium` |
 | `npm run lint` | ESLint |
 | `npx tsc --noEmit` | Type check |
@@ -115,7 +170,10 @@ scripts/convex-env.sh --prod    # the production deployment
 | `lib/hooks/` | Resident and fixer tokens, location, demo mode, the clip recorder |
 | `convex/` | Schema, queries, mutations and actions. `screening.ts` and `fixVerification.ts` call Claude |
 | `convex/lib/` | Prompts, routing, the active city, geo, limits and Groq transcription |
-| `tests/` | Vitest, mirroring the source tree. `tests/browser/` runs in Chromium |
+| `server/` | Self-hosted backend: `db/` (Drizzle schema and client), `storage.ts` (MinIO: presigned upload/download URLs, stat, read, delete, and `isUploadedBy`), `jobs.ts` (pg-boss: `enqueue`, optionally in the caller's transaction, `schedule`, `work`) |
+| `worker/` | The job worker and its name → handler map |
+| `drizzle/` | SQL migrations, generated from `server/db/schema.ts` |
+| `tests/` | Vitest, mirroring the source tree. `tests/browser/` runs in Chromium, `tests/server/` on PGlite |
 | `scripts/` | Node switching, Convex env sync, worktree setup, the Vercel build |
 
 ## Deploy (Vercel + Convex production)
@@ -143,19 +201,23 @@ Server keys go on the Convex production deployment with `scripts/convex-env.sh -
 
 ## Worktrees (parallel cards)
 
-Each worktree needs its own local Convex deployment, otherwise every worktree pushes to the same one. From inside the worktree, after `.env.local` has been copied in:
+Every worktree shares one local Postgres and MinIO (the compose project is named `govtok`), with its own database and bucket in them. From inside the worktree, after `.env.local` has been copied in:
 
 ```bash
 scripts/worktree-setup.sh
 ```
 
-It removes `CONVEX_DEPLOYMENT` and the related URLs from the worktree's `.env.local`, starts a fresh anonymous local deployment, copies the server keys onto it with `convex-env.sh`, and exits with an error if the result is not a local deployment. It refuses to run in the main checkout, whose `.env.local` it would otherwise rewrite.
+It starts `postgres` and `minio` if they aren't running, creates a database and bucket named after the card (`govtok_us33`, `govtok-us33`), writes `DATABASE_URL` and `S3_*` to the worktree's `.env.local`, and applies the migrations. It's safe to re-run, and it doesn't need Docker for the Convex step. It refuses to run in the main checkout, whose `.env.local` it would otherwise rewrite. The main checkout uses the stack's default database and bucket: `DATABASE_URL=postgres://govtok:govtok@127.0.0.1:15432/govtok`, `S3_ENDPOINT` and `S3_PUBLIC_URL` `http://127.0.0.1:19000`, `S3_BUCKET=govtok`, and the app's MinIO user: `S3_ACCESS_KEY=govtok-app`, `S3_SECRET_KEY=govtok-app-dev-secret`.
+
+Because the stack is shared, `docker compose down -v` from any worktree deletes every worktree's databases and buckets. Use `docker compose stop` instead. `docker compose up` from a worktree replaces the `app` and `worker` another worktree built.
+
+Until US40 removes Convex, it first gives the worktree its own local Convex deployment: it removes `CONVEX_DEPLOYMENT` and the related URLs from `.env.local`, starts a fresh anonymous local deployment, copies the server keys onto it with `convex-env.sh`, and exits with an error if the result is not a local deployment.
 
 Only the Vercel Production build holds `CONVEX_DEPLOY_KEY`.
 
 ## Environment variables
 
-See [.env.example](.env.example). `.env.local` is git-ignored.
+See [.env.example](.env.example), and the tables under "Self-hosting" for the compose stack and server code. `.env`, `.env.local` and the rest are git-ignored, and kept out of Docker images by `.dockerignore`.
 
 ## Demo runbook
 
