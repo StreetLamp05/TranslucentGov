@@ -2,11 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import DemoBanner from "@/app/DemoBanner";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { MAX_PHOTOS } from "@/server/lib/postLimits";
 import { useClipRecorder, type RecordedClip } from "@/lib/hooks/useClipRecorder";
 import { MAX_RECORD_MS } from "@/lib/media/constants";
 import { grabFrame } from "@/lib/media/frames";
-import { noPhotosMessage, prepareJpegs } from "@/lib/media/preparePhotos";
+import { prepareJpegs } from "@/lib/media/preparePhotos";
+import { translateRecorderMessage } from "./recorderMessage";
 
 // The post camera (§4.1.1), laid out like TikTok's: a full-screen viewfinder, a round shutter,
 // VIDEO · PHOTO under it, and Upload bottom-left for a clip or photos already on the phone.
@@ -30,12 +32,11 @@ type Props = {
 
 type Photo = { blob: Blob; url: string };
 
-const TAB_LABEL: Record<CaptureMode, string> = { video: "Video", photos: "Photo" };
-const SNAP_ERROR = "We couldn't take that photo. Try again.";
 const RING_RADIUS = 36;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
 export default function CameraCapture({ modes, initialMode, audio = true, hints, onVideo, onPhotos, onClose }: Props) {
+  const t = useT();
   const [mode, setMode] = useState<CaptureMode>(initialMode && modes.includes(initialMode) ? initialMode : modes[0]);
   // The microphone only for Video, so a denied mic still leaves the Photo shutter working.
   const wantAudio = audio && mode === "video";
@@ -92,7 +93,7 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
       addPhotos([await grabFrame(video)]);
       setNote(null);
     } catch {
-      setNote(SNAP_ERROR);
+      setNote(t("post.capture.snapError"));
     }
   }
 
@@ -103,11 +104,17 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
     setNote(null);
     try {
       const { jpegs, cut, unreadable, heic } = await prepareJpegs(files);
-      if (!jpegs.length) return setNote(noPhotosMessage(heic));
+      if (!jpegs.length) return setNote(t(heic ? "post.capture.err.heic" : "post.capture.err.unreadablePhotos"));
       const over = addPhotos(jpegs) + cut;
       const notes = [
-        over > 0 && `A post can have up to ${MAX_PHOTOS} photos, so ${over === 1 ? "1 was" : `${over} were`} left out.`,
-        unreadable > 0 && `${unreadable === 1 ? "1 photo" : `${unreadable} photos`} couldn't be read.`,
+        over > 0 &&
+          (over === 1
+            ? t("post.capture.photoLimitOne", { max: MAX_PHOTOS })
+            : t("post.capture.photoLimitOther", { max: MAX_PHOTOS, count: over })),
+        unreadable > 0 &&
+          (unreadable === 1
+            ? t("post.capture.unreadableOne")
+            : t("post.capture.unreadableOther", { count: unreadable })),
       ].filter(Boolean);
       setNote(notes.length ? notes.join(" ") : null);
     } finally {
@@ -123,26 +130,26 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
   }
 
   const shutterLabel = !cameraOpen
-    ? "Open camera"
+    ? t("post.capture.openCamera")
     : mode === "photos"
-      ? "Take photo"
+      ? t("post.capture.takePhoto")
       : recording
-        ? "Stop"
-        : "Record";
+        ? t("post.capture.stop")
+        : t("post.capture.record");
   const shutterDisabled =
     busy || (cameraOpen && mode === "photos" && full) || (recording && !recorder.canStop) || (!cameraOpen && !inPage);
   const status =
     phase.kind === "converting"
-      ? `Converting your video… ${Math.round(phase.progress * 100)}%`
+      ? t("post.capture.convertingVideo", { percent: Math.round(phase.progress * 100) })
       : phase.kind === "processing" || phase.kind === "done"
-        ? "Preparing your clip…"
+        ? t("post.capture.preparingClip")
         : preparing
-          ? "Preparing your photos…"
+          ? t("post.capture.preparingPhotos")
           : null;
   const lastPhoto = photos.at(-1);
 
   return (
-    <div role="dialog" aria-label="Camera" className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+    <div role="dialog" aria-label={t("post.capture.camera")} className="fixed inset-0 z-50 flex flex-col bg-black text-white">
       {/* Full screen covers the page's banner, and everything simulated stays labeled (§6.1.1). */}
       <div className="relative z-10">
         <DemoBanner />
@@ -160,7 +167,7 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
           type="button"
           onClick={onClose}
           disabled={recording}
-          aria-label="Close"
+          aria-label={t("post.capture.close")}
           className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-2xl disabled:opacity-40"
         >
           ✕
@@ -168,7 +175,7 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
         {recording ? (
           <p aria-live="polite" className="rounded-full bg-black/50 px-3 py-1 text-sm font-semibold tabular-nums">
             <span className="mr-2 inline-block h-2 w-2 rounded-full bg-red-500" />
-            {recorder.secondsLeft}s left
+            {t("post.capture.secondsLeft", { seconds: recorder.secondsLeft })}
           </p>
         ) : (
           mode === "photos" && (
@@ -184,11 +191,11 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
 
       {/* Middle: whatever isn't the live picture */}
       <div className="relative flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-        {!inPage && <p>This browser can&apos;t open the camera here. Upload instead.</p>}
-        {phase.kind === "idle" && inPage && <p className="text-white/70">Opening the camera…</p>}
+        {!inPage && <p>{t("post.capture.noCameraHere")}</p>}
+        {phase.kind === "idle" && inPage && <p className="text-white/70">{t("post.capture.opening")}</p>}
         {phase.kind === "error" && (
           <p role="alert" className="rounded-lg bg-black/60 px-3 py-2">
-            {phase.message}
+            {translateRecorderMessage(phase.message, t)}
           </p>
         )}
         {status && (
@@ -210,11 +217,11 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
             <li key={photo.url} className="relative shrink-0">
               {/* Local object URLs, so not next/image. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.url} alt={`Photo ${i + 1}`} className="h-16 w-12 rounded-md object-cover" />
+              <img src={photo.url} alt={t("post.capture.photoAlt", { n: i + 1 })} className="h-16 w-12 rounded-md object-cover" />
               <button
                 type="button"
                 onClick={() => removePhoto(i)}
-                aria-label={`Remove photo ${i + 1}`}
+                aria-label={t("post.capture.removePhoto", { n: i + 1 })}
                 className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/80 text-xs"
               >
                 ✕
@@ -243,7 +250,7 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
                   </svg>
                 )}
               </span>
-              Upload
+              {t("post.capture.upload")}
               {mode === "video" ? (
                 // Called straight from the change handler, so an iPhone .mov converts inside the tap.
                 <input
@@ -316,13 +323,13 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
               onClick={() => onPhotos(photos.map((p) => p.blob))}
               className="rounded-full bg-[#FE2C55] px-4 py-2 font-bold"
             >
-              Next
+              {t("post.capture.next")}
             </button>
           )}
           {/* The phone's own camera app, when this browser can't record in the page. */}
           {mode === "video" && !inPage && !busy && (
             <label className="cursor-pointer rounded-full border border-white px-3 py-2 text-xs font-semibold">
-              Camera app
+              {t("post.capture.cameraApp")}
               <input
                 type="file"
                 accept="video/*"
@@ -348,7 +355,7 @@ export default function CameraCapture({ modes, initialMode, audio = true, hints,
               onClick={() => setMode(m)}
               className={`text-sm font-bold tracking-wide uppercase ${mode === m ? "text-white" : "text-white/50"}`}
             >
-              {TAB_LABEL[m]}
+              {t(m === "video" ? "post.capture.tab.video" : "post.capture.tab.photos")}
             </button>
           ))}
       </div>

@@ -23,6 +23,7 @@ vi.mock("@/server/lib/transcribe", async (importOriginal) => ({
 const NOW = Date.UTC(2026, 9, 25, 12);
 const AT = { lat: 33.8158, lng: -84.5825 };
 const SEGMENTS = [{ start: 0, end: 2.5, text: "This pothole has been here since June." }];
+const SEGMENTS_ES = [{ start: 0, end: 2.5, text: "Este bache lleva aquí desde junio." }];
 
 // Google's reverse-geocoding shape, trimmed to what screenReport reads.
 function geocodeAnswer(route = "Floyd Rd") {
@@ -47,7 +48,7 @@ function result(verdict: ScreenResult["verdict"], category: Category = "pothole"
 
 beforeEach(() => {
   screenPost.mockReset();
-  transcribe.mockReset().mockResolvedValue({ text: SEGMENTS[0].text, segments: SEGMENTS });
+  transcribe.mockReset().mockResolvedValue({ text: SEGMENTS[0].text, segments: SEGMENTS, segmentsEs: SEGMENTS_ES });
   geocode.mockReset().mockImplementation(async () => geocodeAnswer());
   vi.stubGlobal("fetch", geocode);
   vi.stubEnv("GOOGLE_GEOCODING_KEY", "test-geocoding-key");
@@ -133,6 +134,7 @@ describe("screenReport verdicts", () => {
       street: "Floyd Rd",
       transcript: SEGMENTS[0].text,
       segments: SEGMENTS,
+      segmentsEs: SEGMENTS_ES,
     });
     // Going public bumps the report to the top of the feed (§5.1.2); a held one stays put.
     if (status === "open") expect(report.lastActivityAt).toBe(NOW);
@@ -314,7 +316,7 @@ describe("screenReport guards", () => {
     screenPost.mockResolvedValue(result("pass"));
     await screen();
 
-    expect(await read()).toMatchObject({ status: "open", verdict: "pass", transcript: null, segments: null });
+    expect(await read()).toMatchObject({ status: "open", verdict: "pass", transcript: null, segments: null, segmentsEs: null });
   });
 
   test("a later pass clears audioMuted from an earlier mute", async () => {

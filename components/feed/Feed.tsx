@@ -6,6 +6,8 @@ import { query } from "@/lib/data/api";
 import { useLive } from "@/lib/data/useLive";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
 import { useDemoMode } from "@/lib/hooks/useDemoMode";
+import { useT } from "@/lib/i18n/I18nProvider";
+import LanguageSelector from "@/lib/i18n/LanguageSelector";
 import FeedCard from "./FeedCard";
 import { RevealPausedContext } from "@/components/RevealPlayer";
 import PausedIcon from "./PausedIcon";
@@ -21,6 +23,7 @@ const VISIBLE = 0.6;
  * first. The order is snapshotted on mount; remount the feed (a new key) to re-sort it.
  */
 export default function Feed({ firstId }: { firstId?: string }) {
+  const t = useT();
   const live = useLive("feed", (signal) => query<PublicReport[]>("/api/feed", {}, { signal }));
   const pinned = useLive(firstId ? `feed:${firstId}` : null, (signal) =>
     query<PublicReport | null>(`/api/feed/${encodeURIComponent(firstId!)}`, {}, { signal }),
@@ -182,16 +185,18 @@ export default function Feed({ firstId }: { firstId?: string }) {
   };
 
   // Below the demo banner (26px, sticky at the top) so it doesn't cover the top of the card.
-  const frame = `fixed inset-x-0 bottom-16 mx-auto max-w-md bg-black ${useDemoMode() ? "top-[26px]" : "top-0"}`;
+  const demo = useDemoMode();
+  const frame = `fixed inset-x-0 bottom-16 mx-auto max-w-md bg-black ${demo ? "top-[26px]" : "top-0"}`;
 
   if (reports === undefined) {
-    return <FeedMessage frame={frame}>Loading…</FeedMessage>;
+    return <FeedMessage frame={frame} demo={demo}>{t("feed.loading")}</FeedMessage>;
   }
   if (count === 0) {
-    return <FeedMessage frame={frame}>Nothing on the feed yet. Post the first problem.</FeedMessage>;
+    return <FeedMessage frame={frame} demo={demo}>{t("feed.empty")}</FeedMessage>;
   }
 
   return (
+    <>
     <div
       ref={scroller}
       // A first swipe flips the unlock, but iOS doesn't count a swipe as a gesture. A later tap does.
@@ -224,6 +229,8 @@ export default function Feed({ firstId }: { firstId?: string }) {
         ))}
       </RevealPausedContext.Provider>
     </div>
+    <FeedLanguage demo={demo} />
+    </>
   );
 }
 
@@ -266,10 +273,29 @@ export function useFeedSnapshot(
   return [...snapshot.map((r) => latest.get(r._id) ?? r), ...arrivals];
 }
 
-function FeedMessage({ frame, children }: { frame: string; children: string }) {
+function FeedMessage({ frame, demo, children }: { frame: string; demo: boolean; children: string }) {
   return (
-    <main className={`${frame} flex items-center justify-center p-6 text-center font-bold text-white/80`}>
-      {children}
-    </main>
+    <>
+      <main className={`${frame} flex items-center justify-center p-6 text-center font-bold text-white/80`}>
+        {children}
+      </main>
+      <FeedLanguage demo={demo} />
+    </>
+  );
+}
+
+// The EN / ES switch (US48), top right over the video. A sibling of the scroller, not inside it, so
+// tapping it never counts as the feed's pause or sound-unlock tap. The wrapper spans the feed's
+// column (max-w-md) and ignores the pointer, so only the switch itself takes taps; below the demo
+// banner (26px) when it shows.
+function FeedLanguage({ demo }: { demo: boolean }) {
+  return (
+    <div
+      className={`pointer-events-none fixed inset-x-0 z-20 mx-auto max-w-md ${
+        demo ? "top-[calc(env(safe-area-inset-top,0px)+36px)]" : "top-[calc(env(safe-area-inset-top,0px)+10px)]"
+      }`}
+    >
+      <LanguageSelector tone="dark" className="pointer-events-auto absolute right-3.5 top-0" />
+    </div>
   );
 }

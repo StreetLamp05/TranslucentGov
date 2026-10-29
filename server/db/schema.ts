@@ -112,6 +112,8 @@ export const reports = pgTable(
     frameStorageIds: text().array().notNull(), // ~6 frames for a video, or the 1–10 photos
     transcript: text(),
     segments: jsonb().$type<Segment[]>(),
+    // The same segments translated to Spanish (§5.1.1). Null on reports from before US48.
+    segmentsEs: jsonb().$type<Segment[]>(),
     lat: doublePrecision().notNull(),
     lng: doublePrecision().notNull(),
     street: text(),

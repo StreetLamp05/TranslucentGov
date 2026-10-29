@@ -8,12 +8,14 @@ import { OwnerChip } from "@/components/fix/FixerList";
 import { query } from "@/lib/data/api";
 import { useLive } from "@/lib/data/useLive";
 import type { PublicReport } from "@/server/lib/publicReport";
-import { CITY_ONLY, neighborCanConfirm } from "@/server/lib/fixRules";
+import { neighborCanConfirm } from "@/server/lib/fixRules";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // "Is it fixed?" from a feed card (§4.3.2): a neighbor films the proof of fix for a report the
 // city doesn't own, through the same capture and check screens as a fixer (§5.3.1).
 export default function ConfirmFixPage() {
+  const t = useT();
   const { reportId } = useParams<{ reportId: string }>();
   const token = useResidentToken();
   // null once the report isn't open or fixed (or never existed); undefined while loading.
@@ -22,8 +24,8 @@ export default function ConfirmFixPage() {
   );
   const [started, setStarted] = useState(false);
 
-  if (report === undefined || !token) return <Message text="Loading…" />;
-  if (report === null) return <Message text="This report doesn't exist." />;
+  if (report === undefined || !token) return <Message text={t("confirm.loading")} />;
+  if (report === null) return <Message text={t("confirm.notFound")} />;
 
   const poster = report.frameUrls[0];
   let body;
@@ -33,7 +35,7 @@ export default function ConfirmFixPage() {
   } else {
     body = (
       <p className="mt-6 rounded-xl bg-[#E3F5F2] py-3 text-center font-bold text-[#0F5E56]">
-        {report.status === "fixed" ? "This report is already fixed." : CITY_ONLY}
+        {report.status === "fixed" ? t("confirm.alreadyFixed") : t("confirm.cityOnly")}
       </p>
     );
   }
@@ -41,18 +43,18 @@ export default function ConfirmFixPage() {
   return (
     <main className="mx-auto min-h-dvh max-w-md p-4">
       <BackLink reportId={report._id} />
-      <h1 className="text-2xl font-extrabold">Is it fixed?</h1>
+      <h1 className="text-2xl font-extrabold">{t("confirm.title")}</h1>
       <p className="text-sm text-[#46505C]">
-        Stand where the original was filmed and record a short clip. We compare it with the original.
+        {t("confirm.intro")}
       </p>
       <div className="mt-4 flex gap-3">
         {poster && (
           // MinIO URLs, so next/image's remote config doesn't apply.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt="The original report" className="h-28 w-20 shrink-0 rounded-lg bg-black object-cover" />
+          <img src={poster} alt={t("confirm.originalAlt")} className="h-28 w-20 shrink-0 rounded-lg bg-black object-cover" />
         )}
         <div className="flex flex-col gap-1">
-          <p className="font-bold">{report.title ?? "Untitled report"}</p>
+          <p className="font-bold">{report.title ?? t("confirm.untitled")}</p>
           {report.street && <p className="text-sm text-[#46505C]">{report.street}</p>}
           <div>
             <OwnerChip report={report} />
@@ -65,9 +67,10 @@ export default function ConfirmFixPage() {
 }
 
 function BackLink({ reportId }: { reportId?: string }) {
+  const t = useT();
   return (
     <Link href={reportId ? `/?report=${reportId}` : "/"} className="mb-3 inline-block text-sm font-semibold text-[#46505C]">
-      ← Back to the feed
+      {t("confirm.back")}
     </Link>
   );
 }

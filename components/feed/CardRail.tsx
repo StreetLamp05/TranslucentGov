@@ -5,6 +5,7 @@ import { mutate, query } from "@/lib/data/api";
 import { useLive } from "@/lib/data/useLive";
 import { neighborCanConfirm } from "@/server/lib/fixRules";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
+import { useT } from "@/lib/i18n/I18nProvider";
 import type { FeedSlotProps } from "./FeedCard";
 
 // The caller's relation to a report (GET /api/relation): which they posted and which they
@@ -15,6 +16,7 @@ type Relation = { mine: string[]; meTooed: string[] };
 // cards and on your own posts (§4.1.2 build-plan defaults). Sits above "Is it fixed?" in the
 // right-hand column, or in its place when the card has none (see CardOverlay's layout note).
 export default function CardRail({ report, near }: FeedSlotProps) {
+  const t = useT();
   const token = useResidentToken();
   // Only near cards poll, so a long feed doesn't hold a request per card.
   const relation = useLive(token && near ? `relation:${token}:${report._id}` : null, (signal) =>
@@ -45,7 +47,7 @@ export default function CardRail({ report, near }: FeedSlotProps) {
       onClick={() => void tap()}
       disabled={pressed}
       aria-pressed={pressed}
-      aria-label={`Me too, ${count} so far`}
+      aria-label={t("feed.meTooAria", { count })}
       className={`absolute right-2.5 z-[4] flex flex-col items-center gap-[3px] text-white ${
         neighborCanConfirm(report) ? "bottom-[302px]" : "bottom-[216px]"
       }`}
@@ -58,7 +60,7 @@ export default function CardRail({ report, near }: FeedSlotProps) {
         <HandIcon />
       </span>
       <span className="text-[11px] font-bold [text-shadow:0_1px_2px_rgba(0,0,0,.6)]">
-        {count > 0 ? `Me too · ${count}` : "Me too"}
+        {count > 0 ? t("feed.meTooCount", { count }) : t("feed.meToo")}
       </span>
     </button>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 type Props = { photos: string[]; near: boolean };
 
@@ -9,6 +10,7 @@ type Props = { photos: string[]; near: boolean };
 // scrolls vertically. Photos load only when the card is `near` (file bandwidth
 // is limited). The strip is slot media (z-[2]); the dots and arrows are slot UI (z-[4]).
 export default function Slideshow({ photos, near }: Props) {
+  const t = useT();
   const strip = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const count = photos.length;
@@ -38,7 +40,7 @@ export default function Slideshow({ photos, near }: Props) {
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={url}
-                alt={`Photo ${j + 1} of ${count}`}
+                alt={t("feed.photoAlt", { n: j + 1, count })}
                 loading={j === 0 ? "eager" : "lazy"}
                 className="absolute inset-0 h-full w-full object-cover"
               />
@@ -76,11 +78,12 @@ export default function Slideshow({ photos, near }: Props) {
 // and the next arrow could cover the right-hand button column (Me too, Fixed?, On map) on a short
 // phone. At the mockup's height (top 300px).
 function Arrow({ dir, onClick }: { dir: "prev" | "next"; onClick: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={dir === "prev" ? "Previous photo" : "Next photo"}
+      aria-label={dir === "prev" ? t("feed.prevPhoto") : t("feed.nextPhoto")}
       className={`absolute top-[300px] z-[4] flex size-10 [@media(pointer:coarse)]:hidden items-center justify-center rounded-full bg-[rgba(10,18,30,.55)] text-white ${dir === "prev" ? "left-2" : "right-2"}`}
     >
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

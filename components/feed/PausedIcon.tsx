@@ -1,11 +1,14 @@
+import { useT } from "@/lib/i18n/I18nProvider";
+
 // The play icon centered over the card the user paused (§5.1.1). Pointer-transparent so the next tap
 // reaches the feed. `top` places it over the active card, the way the pooled videos are placed.
 export default function PausedIcon({ top }: { top: string }) {
+  const t = useT();
   return (
     <div
       data-testid="paused-icon"
       role="img"
-      aria-label="Paused"
+      aria-label={t("feed.paused")}
       className="pointer-events-none absolute inset-x-0 z-[4] flex h-full items-center justify-center"
       style={{ top }}
     >

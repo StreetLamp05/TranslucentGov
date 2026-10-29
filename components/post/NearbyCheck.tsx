@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiError, mutate } from "@/lib/data/api";
+import { useT } from "@/lib/i18n/I18nProvider";
 import type { NearbySuggestion } from "@/server/nearby";
 import { daysLabel, daysOpen } from "@/lib/days";
 
@@ -17,6 +18,7 @@ export default function NearbyCheck({
   now: number;
   onContinue: () => void;
 }) {
+  const t = useT();
   const router = useRouter();
   const [pendingReportId, setPendingReportId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function NearbyCheck({
       await mutate("/api/me-too", { reportId });
       router.push(`/?report=${reportId}`);
     } catch (err) {
-      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : "Couldn't add your me-too. Try again.");
+      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : t("post.nearby.addError"));
     } finally {
       setPendingReportId(null);
     }
@@ -38,22 +40,25 @@ export default function NearbyCheck({
   return (
     <main className="flex flex-col gap-4 p-6">
       <div>
-        <h1 className="text-[26px] font-semibold tracking-[-0.035em]">Is it one of these?</h1>
-        <p className="mt-1 text-sm text-[#68756F]">There are open reports within 50 m of your location.</p>
+        <h1 className="text-[26px] font-semibold tracking-[-0.035em]">{t("post.nearby.title")}</h1>
+        <p className="mt-1 text-sm text-[#68756F]">{t("post.nearby.subtitle")}</p>
       </div>
       <ul className="flex flex-col gap-3">
         {reports.map(({ report, distanceMeters, isMine }) => (
           <li key={report._id} className="flex items-center gap-3 rounded-[18px] border border-[#E7E6DE] bg-[#FFFEFA] p-3">
-            <Thumbnail url={report.frameUrls[0] ?? null} title={report.title ?? "Nearby report"} />
+            <Thumbnail url={report.frameUrls[0] ?? null} title={report.title ?? t("post.nearby.thumbTitle")} />
             <div className="min-w-0 flex-1">
-              <p className="truncate font-bold">{report.title ?? "Untitled report"}</p>
+              <p className="truncate font-bold">{report.title ?? t("post.nearby.untitled")}</p>
               {report.street && <p className="truncate text-xs text-[#68756F]">{report.street}</p>}
               <p className="mt-1 text-xs text-[#68756F]">
-                {daysLabel(daysOpen(report.createdAt, now))} open · {Math.round(distanceMeters)} m away
+                {t("post.nearby.openAway", {
+                  days: daysLabel(daysOpen(report.createdAt, now), t),
+                  meters: Math.round(distanceMeters),
+                })}
               </p>
             </div>
             {isMine ? (
-              <span className="shrink-0 text-xs font-semibold text-[#68756F]">Your report</span>
+              <span className="shrink-0 text-xs font-semibold text-[#68756F]">{t("post.nearby.yours")}</span>
             ) : (
               <button
                 type="button"
@@ -61,7 +66,7 @@ export default function NearbyCheck({
                 disabled={pendingReportId !== null}
                 className="shrink-0 rounded-xl bg-[#173F35] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#245446] disabled:opacity-50"
               >
-                {pendingReportId === report._id ? "Adding…" : "Me too"}
+                {pendingReportId === report._id ? t("post.nearby.adding") : t("post.nearby.meToo")}
               </button>
             )}
           </li>
@@ -73,7 +78,7 @@ export default function NearbyCheck({
         onClick={onContinue}
         className="rounded-xl border border-[#D8DDD2] bg-[#FFFEFA] px-4 py-3 font-semibold text-[#18382F]"
       >
-        No, it&apos;s new
+        {t("post.nearby.isNew")}
       </button>
     </main>
   );

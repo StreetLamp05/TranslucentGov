@@ -8,6 +8,8 @@ import { ACTIVE_CITY } from "../../server/lib/city";
 import { DEMO_POINT, type LatLng } from "../../lib/demo";
 import { useCurrentLocation } from "../../lib/hooks/useCurrentLocation";
 import { useDemoMode } from "../../lib/hooks/useDemoMode";
+import { useT } from "../../lib/i18n/I18nProvider";
+import type { TFunction } from "../../lib/i18n/I18nProvider";
 import { bubbleStyle } from "./bubble";
 import { reportClusterRenderer } from "./clusterRenderer";
 import { markerCount, STATUS_COLOR } from "./counts";
@@ -27,6 +29,7 @@ type Props = {
 };
 
 export default function ReportsMap(props: Props) {
+  const t = useT();
   const home = useDemoMode() ? DEMO_POINT : CITY_CENTER;
   // Read here, not at module load, so Next inlines them and tests can stub them.
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
@@ -36,7 +39,7 @@ export default function ReportsMap(props: Props) {
   if (!apiKey || !mapId) {
     return (
       <div className="flex h-full items-center justify-center bg-[#EDF0EA] p-6 text-center text-sm font-semibold text-[#4A5A6E]">
-        The map isn&apos;t configured: NEXT_PUBLIC_GOOGLE_MAPS_KEY and NEXT_PUBLIC_GOOGLE_MAP_ID must be set.
+        {t("map.notConfigured")}
       </div>
     );
   }
@@ -64,15 +67,19 @@ type MarkerRefs = Record<string, google.maps.marker.AdvancedMarkerElement>;
 // The renderer reads each clustered marker's report from here. Weak, so unmounted markers
 // drop out on their own.
 const reportOfMarker = new WeakMap<Marker, MapReport>();
-const renderer = reportClusterRenderer((marker) => reportOfMarker.get(marker));
 
 function ClusteredMarkers({ reports, focusId, onOpen, home }: Props & { home: LatLng }) {
   const map = useMap();
+  const t = useT();
   const [markers, setMarkers] = useState<MarkerRefs>({});
 
   // Built detached and attached in an effect, so StrictMode's mount, unmount, remount in
   // dev reattaches it instead of leaving it off the map.
-  const clusterer = useMemo(() => (map ? new MarkerClusterer({ renderer }) : null), [map]);
+  // The cluster tooltips are plain DOM, so a language change builds a new clusterer.
+  const clusterer = useMemo(
+    () => (map ? new MarkerClusterer({ renderer: reportClusterRenderer((marker) => reportOfMarker.get(marker), t) }) : null),
+    [map, t],
+  );
   useEffect(() => {
     if (!clusterer || !map) return;
     clusterer.setMap(map);
@@ -166,14 +173,14 @@ function ReportMarker({
     [setMarkerRef, report._id],
   );
   const position = useMemo(() => ({ lat: report.lat, lng: report.lng }), [report.lat, report.lng]);
+  const t = useT();
   const count = markerCount(report);
-  const people = count === 1 ? "1 person" : `${count} people`;
 
   return (
     <AdvancedMarker
       ref={ref}
       position={position}
-      title={`${report.isSample ? "Sample. " : ""}${report.title ?? "Report"}. ${report.status === "fixed" ? "Fixed. " : ""}${people} reported this.`}
+      title={markerTitle(report, count, t)}
       onClick={() => onOpen(report._id)}
       anchorLeft="-50%"
       anchorTop="-50%"
@@ -182,6 +189,18 @@ function ReportMarker({
       <div style={bubbleStyle(count, STATUS_COLOR[report.status], highlighted)}>{count}</div>
     </AdvancedMarker>
   );
+}
+
+// "Sample. Pothole. Fixed. 3 people reported this." The marker's accessible name.
+function markerTitle(report: MapReport, count: number, t: TFunction): string {
+  return [
+    report.isSample ? t("map.marker.sample") : null,
+    `${report.title ?? t("map.marker.untitled")}.`,
+    report.status === "fixed" ? t("map.marker.fixed") : null,
+    count === 1 ? t("map.marker.reportedOne") : t("map.marker.reportedOther", { count }),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 // The phone's position, or DEMO_POINT in demo mode (§6.1.1), as in the mockup. Never
@@ -220,12 +239,13 @@ function useLocationAlreadyGranted(): boolean {
 
 // Nothing shows until a location arrives (denied or unavailable: none).
 function LocatedDot() {
+  const t = useT();
   const location = useCurrentLocation();
   if (location.status !== "ready") return null;
   return (
     <AdvancedMarker
       position={location.point}
-      title={location.simulated ? "Your simulated location" : "You are here"}
+      title={location.simulated ? t("map.you.simulated") : t("map.you.here")}
       anchorLeft="-50%"
       anchorTop="-50%"
       zIndex={2500}

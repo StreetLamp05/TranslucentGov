@@ -1,10 +1,14 @@
+"use client";
+
 import Link from "next/link";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { OWNER_CHIP } from "@/server/lib/routing";
 import type { TriageGroup } from "@/server/lib/triageGroups";
 
 // /gov's overview (§5.5.1): every agency with its open and fixed counts, in the order the
 // query returns (most open first, "Routing unclear" last). Each row opens that group's queue.
 export default function AgencyList({ groups }: { groups: readonly TriageGroup[] }) {
+  const t = useT();
   return (
     <ul className="divide-y divide-[#E2E6EA] overflow-hidden rounded-2xl bg-white">
       {groups.map((group) => {
@@ -22,8 +26,8 @@ export default function AgencyList({ groups }: { groups: readonly TriageGroup[] 
                   {chip.label}
                 </span>
               </div>
-              <Count label="open" value={group.open} />
-              <Count label="fixed" value={group.fixed} />
+              <Count id="open" label={t("gov.count.open")} value={group.open} />
+              <Count id="fixed" label={t("gov.count.fixed")} value={group.fixed} />
             </Link>
           </li>
         );
@@ -32,9 +36,9 @@ export default function AgencyList({ groups }: { groups: readonly TriageGroup[] 
   );
 }
 
-function Count({ label, value }: { label: string; value: number }) {
+function Count({ id, label, value }: { id: string; label: string; value: number }) {
   return (
-    <p className="w-14 shrink-0 text-center" data-testid={`${label}-count`}>
+    <p className="w-14 shrink-0 text-center" data-testid={`${id}-count`}>
       <span className="block text-xl font-extrabold">{value}</span>
       <span className="block text-xs text-[#46505C]">{label}</span>
     </p>

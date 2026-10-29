@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { captionAt } from "../../lib/captions";
+import { captionAt, captionSegments } from "../../lib/captions";
 
 const segments = [
   { start: 0, end: 2.5, text: " This pothole has been here a month. " },
@@ -42,5 +42,26 @@ describe("captionAt", () => {
     expect(captionAt(undefined, 1)).toBeNull();
     expect(captionAt([], 1)).toBeNull();
     expect(captionAt([{ start: 0, end: 4, text: "   " }], 1)).toBeNull();
+  });
+});
+
+describe("captionSegments", () => {
+  const en = [{ start: 0, end: 2, text: "Pothole." }];
+  const es = [{ start: 0, end: 2, text: "Bache." }];
+  const report = { audioMuted: false, segments: en, segmentsEs: es };
+
+  test("English reads segments, Spanish reads segmentsEs", () => {
+    expect(captionSegments(report, "en")).toBe(en);
+    expect(captionSegments(report, "es")).toBe(es);
+  });
+
+  test("Spanish falls back to the original when a report has no Spanish", () => {
+    expect(captionSegments({ ...report, segmentsEs: undefined }, "es")).toBe(en);
+    expect(captionSegments({ ...report, segmentsEs: [] }, "es")).toBe(en);
+  });
+
+  test("a muted report has no captions in either language", () => {
+    expect(captionSegments({ ...report, audioMuted: true }, "en")).toBeUndefined();
+    expect(captionSegments({ ...report, audioMuted: true }, "es")).toBeUndefined();
   });
 });

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 import { statusText } from "@/components/feed/CardOverlay";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { OWNER_CHIP } from "@/server/lib/routing";
 import type { QueueRow, TriageQueue } from "@/server/lib/triageGroups";
 
 // One agency's queue (§5.5.2): open reports ranked by neighbors (as the query returns them),
 // then recently fixed. Rows follow the fixer list (§5.3.1) and open the feed card (§5.2.1).
 export default function AgencyQueue({ queue }: { queue: TriageQueue }) {
+  const t = useT();
   const [now] = useState(() => Date.now());
   const chip = OWNER_CHIP[queue.owner];
   return (
@@ -21,8 +23,14 @@ export default function AgencyQueue({ queue }: { queue: TriageQueue }) {
         <span className="size-2 rounded-full" style={{ background: chip.dot }} />
         {chip.label}
       </span>
-      <Section title="Open" note="Ranked by how many neighbors flagged it" rows={queue.open} now={now} empty="No open reports." />
-      <Section title="Recently fixed" rows={queue.fixed} now={now} empty="Nothing fixed yet." />
+      <Section
+        title={t("gov.queue.open")}
+        note={t("gov.queue.openNote")}
+        rows={queue.open}
+        now={now}
+        empty={t("gov.queue.openEmpty")}
+      />
+      <Section title={t("gov.queue.fixed")} rows={queue.fixed} now={now} empty={t("gov.queue.fixedEmpty")} />
     </>
   );
 }
@@ -40,6 +48,7 @@ function Section({
   now: number;
   empty: string;
 }) {
+  const t = useT();
   return (
     <section className="mt-6" aria-label={title}>
       <h2 className="text-lg font-bold">
@@ -57,13 +66,13 @@ function Section({
                 <div className="min-w-0 flex-1">
                   {row.isSample && (
                     <span className="rounded-md bg-[#EDF0F3] px-1.5 py-0.5 text-[11px] font-bold text-[#46505C]">
-                      Sample · filmed in California
+                      {t("gov.queue.sample")}
                     </span>
                   )}
-                  <p className="truncate font-bold">{row.title ?? "Untitled report"}</p>
+                  <p className="truncate font-bold">{row.title ?? t("gov.queue.untitled")}</p>
                   {row.street && <p className="truncate text-xs text-[#46505C]">{row.street}</p>}
                   <p className="mt-1 text-xs text-[#46505C]">
-                    {statusText(row, now)} · {row.meTooCount} me too
+                    {statusText(row, now, t)} · {t("gov.queue.meToo", { count: row.meTooCount })}
                   </p>
                 </div>
               </Link>

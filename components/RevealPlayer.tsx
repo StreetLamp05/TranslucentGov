@@ -7,6 +7,8 @@ import type { PublicReport } from "@/server/lib/publicReport";
 import { mutate } from "@/lib/data/api";
 import { daysLabel, daysOpen } from "@/lib/days";
 import { useSoundUnlocked } from "@/lib/hooks/sound";
+import { translate } from "@/lib/i18n/dictionary";
+import { useT, type TFunction } from "@/lib/i18n/I18nProvider";
 
 // The before/after reveal on a fixed report (§5.1.1): the original clip (or slideshow), a ~0.7 s
 // "FIXED · N days · <who>" stamp, the fix clip, and around again.
@@ -57,6 +59,7 @@ type Props = {
  * z-[2], the stamp at z-[5]; see FeedCard's layers). Standalone, it renders its own box.
  */
 export default function RevealPlayer({ report, active, near = true, video = null, standalone = false, onStamp }: Props) {
+  const t = useT();
   const [phase, setPhase] = useState<RevealPhase>("original");
   // Finished loops. On the first pass the pool has already started the original.
   const [pass, setPass] = useState(0);
@@ -216,7 +219,7 @@ export default function RevealPlayer({ report, active, near = true, video = null
           className={`pointer-events-none absolute inset-0 z-[2] h-full w-full object-cover ${phase === "fix" ? "" : "invisible"}`}
         />
       )}
-      {active && phase === "stamp" && <Stamp text={stampText(report)} />}
+      {active && phase === "stamp" && <Stamp text={stampText(report, t)} />}
     </>
   );
   return standalone ? <div className="relative h-full w-full overflow-hidden bg-black">{media}</div> : media;
@@ -226,13 +229,14 @@ export default function RevealPlayer({ report, active, near = true, video = null
 // neighbor · Cobb DOT" (§4.3.2). Days run from createdAt to fixedAt, as on the status chip.
 export function stampText(
   report: Pick<RevealReport, "createdAt" | "fixedAt" | "fixedByKind" | "fixedByLabel" | "agency" | "owner">,
+  t: TFunction = (key, vars) => translate("en", key, vars),
 ): string {
-  const parts = ["FIXED"];
+  const parts = [t("feed.stamp.fixed")];
   if (report.fixedAt !== undefined) {
     const days = daysOpen(report.createdAt, report.fixedAt);
-    parts.push(days === 0 ? "same day" : daysLabel(days));
+    parts.push(days === 0 ? t("feed.stamp.sameDay") : daysLabel(days, t));
   }
-  const who = fixedLine(report);
+  const who = fixedLine(report, t);
   if (who) parts.push(who);
   return parts.join(" · ");
 }
