@@ -47,6 +47,7 @@ import type * as stats from "../stats.js";
 import type * as videoIntake from "../videoIntake.js";
 import type * as videoIntakeAuth from "../videoIntakeAuth.js";
 import type * as videoIntakeDb from "../videoIntakeDb.js";
+import type * as videoIntakeTranscribe from "../videoIntakeTranscribe.js";
 
 import type {
   ApiFromModules,
@@ -94,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   videoIntake: typeof videoIntake;
   videoIntakeAuth: typeof videoIntakeAuth;
   videoIntakeDb: typeof videoIntakeDb;
+  videoIntakeTranscribe: typeof videoIntakeTranscribe;
 }>;
 
 /**

@@ -23,7 +23,7 @@ export type RecordedClip = {
   /** 6 evenly spaced JPEG frames (fewer for very short clips). Frame 0 is the thumbnail and poster. */
   frames: Blob[];
 };
-// Clips from a file are passed through as they are when Groq and every phone can take them,
+// Clips from a file are passed through as they are when Gemini and every phone can take them,
 // so they keep any audio track even when `audio` is false. Anything else (an iPhone .mov, a clip
 // over 25 MB or 20 s) is converted first (lib/media/convertClip), without sound when `audio` is false.
 

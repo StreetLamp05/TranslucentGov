@@ -114,8 +114,8 @@ describe("captions", () => {
     expect(screen.queryByTestId("caption")).toBeNull();
   });
 
-  // A fixed card's original ends and stays ended through the stamp and fix clip (US19). Whisper's
-  // last segment can run past the clip's real length, so currentTime alone would keep it up.
+  // A fixed card's original ends and stays ended through the stamp and fix clip (US19). The
+  // transcript's last segment can run past the clip's real length, so currentTime alone would keep it up.
   test("none once the clip has ended", () => {
     const video = videoAt();
     show(report(), { video });

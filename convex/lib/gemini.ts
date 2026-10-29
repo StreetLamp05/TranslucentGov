@@ -50,14 +50,18 @@ export function imageBlock({ mediaType, data }: ImageInput): Part {
 
 const IMAGE_MEDIA_TYPES: readonly string[] = ["image/jpeg", "image/png", "image/webp"];
 
-// For a blob from `ctx.storage.get`. Frames from the browser canvas are JPEGs (§1.1.3).
 // btoa rather than Buffer, so this also works outside "use node" files.
-export async function blobToImage(blob: Blob): Promise<ImageInput> {
-  const mediaType = IMAGE_MEDIA_TYPES.includes(blob.type) ? (blob.type as ImageMediaType) : "image/jpeg";
+export async function blobToBase64(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return { mediaType, data: btoa(binary) };
+  return btoa(binary);
+}
+
+// For a blob from `ctx.storage.get`. Frames from the browser canvas are JPEGs (§1.1.3).
+export async function blobToImage(blob: Blob): Promise<ImageInput> {
+  const mediaType = IMAGE_MEDIA_TYPES.includes(blob.type) ? (blob.type as ImageMediaType) : "image/jpeg";
+  return { mediaType, data: await blobToBase64(blob) };
 }
 
 // `attempts: 1` is the initial call only: the pipeline owns the single retry, so SDK retries
