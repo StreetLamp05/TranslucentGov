@@ -1,20 +1,17 @@
-// Posts a fixture through files.generateUploadUrl + posts.createReport on this worktree's
-// local Convex deployment, then waits for screening (US13) to move it out of `pending` and
-// prints the result and the elapsed time. Calls the real Google Maps and Gemini APIs
-// with the keys set on that deployment (scripts/convex-env.sh).
+// Posts a fixture through the app's HTTP routes (/api/files, /api/posts), then waits for
+// screening (US13) to move it out of `pending` and prints the result and the elapsed time.
+// Calls the real Google Maps and Gemini APIs with the keys the app and worker run with.
 //
-// Usage (needs `npx convex dev` running):
+// Usage (needs `npm run dev` and `npm run worker` running, on this worktree's database):
 //   npx tsx --env-file=.env.local scripts/try-screening.ts <clip.mp4|webm> <frame.jpg>...
 //   npx tsx --env-file=.env.local scripts/try-screening.ts --photos <photo.jpg>...
 // A video needs its frames as images (the browser grabs ~6 in the app, §4.1.1). From a US3
 // clip: ffmpeg -i clip.mp4 -vf "fps=6/20,scale=-2:1280" frame-%d.jpg
 // Add `--description "..."` for the optional text, and `--at <lat>,<lng>` to post somewhere
-// other than Mableton.
+// other than Mableton. APP_URL (default http://127.0.0.1:3000) says where the app is.
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "../convex/_generated/api";
-import type { Id } from "../convex/_generated/dataModel";
+import { RESIDENT_TOKEN_HEADER } from "../lib/data/headers";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
@@ -50,30 +47,35 @@ function parseArgs(argv: string[]) {
 }
 
 async function main() {
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
-  // Never post test reports to the shared dev or prod deployment.
-  if (!url || !/^http:\/\/(127\.0\.0\.1|localhost):/.test(url)) {
-    throw new Error("NEXT_PUBLIC_CONVEX_URL isn't a local deployment. Run scripts/worktree-setup.sh first.");
-  }
   const { photos, clip, frames, description, at } = parseArgs(process.argv.slice(2));
-  const client = new ConvexHttpClient(url);
+  const base = process.env.APP_URL ?? "http://127.0.0.1:3000";
   const token = `try-screening-${crypto.randomUUID()}`;
 
-  async function upload(file: string): Promise<Id<"_storage">> {
+  async function call<T>(method: "GET" | "POST", route: string, body?: unknown): Promise<T> {
+    const response = await fetch(`${base}${route}`, {
+      method,
+      headers: { [RESIDENT_TOKEN_HEADER]: token, ...(body ? { "Content-Type": "application/json" } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(`${route}: ${data?.error ?? response.status}`);
+    return data as T;
+  }
+
+  async function upload(file: string): Promise<string> {
     const type = CONTENT_TYPES[path.extname(file).toLowerCase()];
     if (!type) throw new Error(`${file}: unknown file type`);
-    const uploadUrl = await client.mutation(api.files.generateUploadUrl, { token });
-    const response = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": type }, body: readFileSync(file) });
+    const { key, url } = await call<{ key: string; url: string }>("POST", "/api/files", { contentType: type });
+    const response = await fetch(url, { method: "PUT", headers: { "Content-Type": type }, body: readFileSync(file) });
     if (!response.ok) throw new Error(`${file}: upload failed (${response.status})`);
-    return ((await response.json()) as { storageId: Id<"_storage"> }).storageId;
+    return key;
   }
 
   const clipStorageId = clip ? await upload(clip) : undefined;
   const frameStorageIds = await Promise.all(frames.map(upload));
 
   const started = Date.now();
-  const reportId = await client.mutation(api.posts.createReport, {
-    token,
+  const reportId = await call<string>("POST", "/api/posts", {
     mediaType: photos ? "photos" : "video",
     clipStorageId,
     frameStorageIds,
@@ -83,7 +85,7 @@ async function main() {
   console.log(`report ${reportId} created, waiting for screening…`);
 
   while (Date.now() - started < TIMEOUT_MS) {
-    const report = await client.query(api.posts.myReport, { token, reportId });
+    const report = await call<Record<string, unknown> | null>("GET", `/api/posts/mine?reportId=${reportId}`);
     if (report && report.status !== "pending") {
       const { status, verdict, reason, category, owner, agency, title, street, audioMuted, transcript } = report;
       console.log(JSON.stringify({ status, verdict, reason, category, owner, agency, title, street, audioMuted, transcript }, null, 2));

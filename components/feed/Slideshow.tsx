@@ -6,8 +6,8 @@ type Props = { photos: string[]; near: boolean };
 
 // A photo post's slideshow (§5.1.1, layout after spec/UI_mockups). Its own horizontal
 // scroll-snap strip, so a sideways swipe moves the photos and never the feed, which only
-// scrolls vertically. Photos load only when the card is `near` (Convex's free file bandwidth
-// is small). The strip is slot media (z-[2]); the dots and arrows are slot UI (z-[4]).
+// scrolls vertically. Photos load only when the card is `near` (file bandwidth
+// is limited). The strip is slot media (z-[2]); the dots and arrows are slot UI (z-[4]).
 export default function Slideshow({ photos, near }: Props) {
   const strip = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
@@ -34,7 +34,7 @@ export default function Slideshow({ photos, near }: Props) {
         {photos.map((url, j) => (
           <div key={j} className="relative h-full w-full shrink-0 snap-center snap-always bg-black">
             {near && (
-              // Convex storage URLs, so not next/image.
+              // MinIO URLs, so not next/image.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={url}

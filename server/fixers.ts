@@ -7,8 +7,8 @@ import { publicReport, publicReportOrNull, reportDoc } from "./lib/publicReport"
 import { reportMedia } from "./reportMedia";
 
 // Fixer access (§3.1.2): a passcode per fixer, kept in the DB. The passcode is checked once,
-// server-side, and swapped for a token the /fix screen keeps in localStorage. Ports
-// convex/fixers.ts; the routes are app/api/fixers/.
+// server-side, and swapped for a token the /fix screen keeps in localStorage. The
+// routes are app/api/fixers/.
 
 // The same message for every failure, so it never hints whether a passcode exists.
 export const WRONG_PASSCODE = "Wrong passcode";

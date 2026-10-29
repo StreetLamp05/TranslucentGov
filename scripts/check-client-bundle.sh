@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 ENV_FILE=".env.local"
 BUNDLE=".next"
 # Server keys (server env or build only). GEMINI_MODEL is public, so it isn't listed.
-KEYS=(GEMINI_API_KEY GOOGLE_GEOCODING_KEY ADMIN_PASSCODE CONVEX_DEPLOY_KEY)
+KEYS=(GEMINI_API_KEY GOOGLE_GEOCODING_KEY ADMIN_PASSCODE)
 
 if [ ! -d "$BUNDLE" ]; then
   echo "error: $BUNDLE not found. Run npm run build first." >&2

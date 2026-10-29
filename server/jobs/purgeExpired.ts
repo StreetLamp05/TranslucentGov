@@ -1,7 +1,7 @@
 import { purgeExpired as purgeBatch } from "../purge";
 
 // The nightly retention job (§7.1.1): held reports, unverified fix attempts and old intake
-// videos, with their MinIO objects. Ports convex/crons.ts. Scheduled by worker/index.ts.
+// videos, with their MinIO objects. Scheduled by worker/index.ts.
 
 export const PURGE_EXPIRED = "purgeExpired";
 /** Daily at 10:00 UTC, as M0's cron was. */

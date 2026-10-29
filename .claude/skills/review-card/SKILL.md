@@ -40,7 +40,7 @@ Make **one `Agent` call**, `subagent_type: general-purpose` (fresh — not `fork
 
 **Lens 1 — implementation/AC (small picture).** Ask it to:
 - Check the change against every acceptance criterion literally, and against the exact spec text (field types, optional vs required, indexes, auth checks inside each query/mutation, or the equivalent precision for whatever the change actually is — function contract, UI behavior, etc.).
-- Verify generated/derived artifacts actually match their source (e.g. diff `convex/_generated` against codegen) rather than assume they were regenerated correctly.
+- Verify generated/derived artifacts actually match their source (e.g. run `npx drizzle-kit generate` and expect "No schema changes" when the card touches `server/db/schema.ts`) rather than assume they were regenerated correctly.
 - Verify any new test actually tests what it claims — not tautological, not weakened relative to sibling tests covering the same shape.
 - Where an AC is about runtime behavior, run the narrowest thing that proves it rather than review only statically.
 

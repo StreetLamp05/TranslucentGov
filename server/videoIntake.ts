@@ -12,7 +12,7 @@ import { deleteObject, isUploadedBy, statObject } from "./storage";
 
 // The admin video intake (/admin/video-intake): an admin uploads an MP4 or WebM to MinIO, this
 // saves it, and the `transcribeVideo` job (server/jobs/transcribeVideo.ts) transcribes it with
-// Gemini. Ports convex/videoIntake.ts; routes are app/api/admin/video-intake. Rows older than
+// Gemini. Routes are app/api/admin/video-intake. Rows older than
 // 7 days are deleted with their video by the nightly purge (server/purge.ts).
 
 // The job's name, as in server/jobs/transcribeVideo.ts (not imported: that would pull Gemini into the route).

@@ -9,9 +9,8 @@ import { UserError } from "./lib/errors";
 import { createUploadUrl } from "./storage";
 
 // What the admin pages (/admin/seed, /admin/video-intake) share: the login, uploads, and the
-// operator tools for a report that's held or stuck (§4.2.1). The login and the tools port
-// convex/videoIntakeAuth.ts and convex/screeningDb.ts `rescreen` / `release`, which were run
-// from the Convex CLI. Routes are app/api/admin/; all but the login need an admin session.
+// operator tools for a report that's held or stuck (§4.2.1). The operator tools are
+// `rescreen` and `release`. Routes are app/api/admin/; all but the login need an admin session.
 
 export const WRONG_ADMIN_PASSCODE = "Invalid admin passcode.";
 

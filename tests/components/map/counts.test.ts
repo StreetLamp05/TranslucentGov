@@ -3,7 +3,7 @@ import type { Cluster, Marker } from "@googlemaps/markerclusterer";
 import { afterEach, expect, test, vi } from "vitest";
 import { reportClusterRenderer } from "../../../components/map/clusterRenderer";
 import { clusterColor, clusterCount, markerCount, MIXED_COLOR, STATUS_COLOR } from "../../../components/map/counts";
-import type { MapReport } from "../../../convex/map";
+import type { MapReport } from "../../../server/map";
 
 afterEach(() => vi.unstubAllGlobals());
 

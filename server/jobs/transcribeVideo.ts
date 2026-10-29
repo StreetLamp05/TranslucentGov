@@ -4,8 +4,7 @@ import { videoIntake } from "../db/schema";
 import { transcribe } from "../lib/transcribe";
 import { readObject } from "../storage";
 
-// Transcribes an admin intake video with Gemini (§1.1.4). Ports convex/videoIntake.ts
-// `transcribeVideo` and videoIntakeTranscribe.ts. Enqueued as `transcribeVideo { id }` by
+// Transcribes an admin intake video with Gemini (§1.1.4). Enqueued as `transcribeVideo { id }` by
 // saveUpload (server/videoIntake.ts). Any failure is saved on the entry, which the page shows;
 // there's no retry (server/jobs.ts), so the entry stays `failed`.
 

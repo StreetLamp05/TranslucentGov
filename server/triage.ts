@@ -14,8 +14,7 @@ import {
 } from "./lib/triageGroups";
 import { getDownloadUrl } from "./storage";
 
-// The triage dashboard on Postgres (§5.5): the same shapes as M0's convex/triage.ts and
-// triageGroup.ts, with the grouping done by the unchanged helpers in lib/triageGroups.ts
+// The triage dashboard on Postgres (§5.5): with the grouping done by the unchanged helpers in lib/triageGroups.ts
 // against the active routing table. Public and read-only (§3.1.3); only open and fixed
 // reports are read (§2.1.3).
 

@@ -1,5 +1,5 @@
 // Runs checkFix over the US3 before/after pairs and prints expected vs actual (§4.3.1).
-// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in convex/lib/gemini.ts).
+// Calls the real Gemini API (GEMINI_API_KEY, model from GEMINI_MODEL or the default in server/lib/gemini.ts).
 //
 // Usage: npx tsx --env-file=.env.local scripts/eval-fix.ts [path/to/fix-pairs.json]
 //
@@ -15,8 +15,8 @@
 // fails the run, so a file in some other shape can't pass as "0/0 match".
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import type { ImageMediaType } from "../convex/lib/gemini";
-import { checkFix, type FixInput, type FixResult } from "../convex/lib/fixPrompt";
+import type { ImageMediaType } from "../server/lib/gemini";
+import { checkFix, type FixInput, type FixResult } from "../server/lib/fixPrompt";
 
 type Pair = {
   id: string;

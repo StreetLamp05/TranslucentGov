@@ -7,9 +7,9 @@ Updated incrementally as decisions are locked in.
 - **✅ Triage dashboard design COMPLETE (2026-10-28, M1).** Must-haves only (user call): §2.1.4, §3.1.3, §5.5.1, §5.5.2 and §6.1.2 are locked, the sweep is clean, and the nice-to-haves are in §8. Cards pushed: F10 #13, US42 #14, US43 #15, US45 #17 (US44 #16 closed: the migration keeps API shapes, so no separate port). Building US42.
 - **Status (M0):** ✅ **SPEC COMPLETE (Level 2, 2026-10-24).** Every item for tonight's build is decided, and the consistency sweep is resolved. No forward references are open. One known gap (2026-10-25): slurs aren't yet in US12's title rule (§4.2.1).
 - **Last completed:** retcons for text descriptions, photo slideshow posts and the private Me page (§4.1.1, §5.4.1). Build decisions from US25 are recorded in §6.1.1, §6.2.1 and §8 (2026-10-25).
-- **City switch (2026-10-25, US25, user decision):** the Cal Hacks demo runs as **San Francisco**, live at the Palace of Fine Arts. This reverses §6.1.1's rejected "Bay Area as a second city". `ACTIVE_CITY` in `convex/lib/city.ts` sets the routing (§2.1.2), the Claude prompts, the map, `DEMO_POINT` and the seed presets. ~~Oct 30 flips it back to Mableton.~~ **Retcon (2026-10-28, user decision): Oct 30 stays San Francisco, with the existing SF data kept.** See §6.1.1 "City profile".
+- **City switch (2026-10-25, US25, user decision):** the Cal Hacks demo runs as **San Francisco**, live at the Palace of Fine Arts. This reverses §6.1.1's rejected "Bay Area as a second city". `ACTIVE_CITY` in `server/lib/city.ts` sets the routing (§2.1.2), the Claude prompts, the map, `DEMO_POINT` and the seed presets. ~~Oct 30 flips it back to Mableton.~~ **Retcon (2026-10-28, user decision): Oct 30 stays San Francisco, with the existing SF data kept.** See §6.1.1 "City profile".
 - **M1 stack switch (2026-10-28, user decision):** this repo, TranslucentGov, is a fork of GovTok aimed at the **Georgia 311 Challenge Demo Day** (Fri 2026-10-30, 9am ET, Morehouse). Mableton Mayor Michael Owens and the judges attend, and top projects may go to the city for a pilot. AI moves to **Gemini** (§1.1.3, §1.1.4), and the backend moves from Convex to a **self-hosted docker-compose stack** of Postgres, MinIO, a pg-boss worker, Next.js and Caddy (§1.1.1). Other sections that say "Convex action / query / storage / scheduler" now mean worker job / route handler / MinIO / pg-boss; the behavior they describe is unchanged.
-- **Next up:** build M1. The cards are F9 + US31–US41 on Project #19 (draft: `.planning/M1-issues.json`). Cut line: if US40 (remove Convex) hasn't merged by Thu 2026-10-29 evening ET, demo on Convex + Gemini.
+- **Next up:** build M1. The cards are F9 + US31–US41 on Project #19 (draft: `.planning/M1-issues.json`). US40 (remove Convex) landed: the codebase has no Convex code, and everything runs on the compose stack.
 - **Moved to server (2026-10-24):** work continues on `miraii` at `~/projects/GovTok` (moved from `~/GovTok` 2026-10-24; symlink left behind), using `claude --remote-control` inside tmux. The original conversation was on the laptop; this doc plus memory is the only carried-over context.
 - **Context the doc doesn't hold:**
   - Cal Hacks submissions are due Sunday morning, 2 people.
@@ -104,7 +104,7 @@ Updated incrementally as decisions are locked in.
 - Tests: server tests run on PGlite (in-process Postgres) with the Drizzle migrations, so worktrees and CI need no Docker. Each worktree gets its own database and bucket in the shared local stack.
 - Rationale: Cal Hacks is over, so Convex's prize no longer matters. A city pilot needs a stack the city can own, with no per-developer SaaS. Every part is a common open-source building block.
 - Rejected:
-  - Keep Convex: fastest path to Oct 30, but city IT can't easily self-host it. It stays as the fallback until US40 merges (cut line).
+  - Keep Convex: fastest path to Oct 30, but city IT can't easily self-host it. It was the fallback until US40 merged; the Convex code is now removed.
   - Supabase self-hosted: realtime built in, but about 10 containers and still no job runner.
   - PocketBase: the smallest footprint, but SQLite plus a niche framework is a harder sell for a city pilot.
   - Vercel frontend + self-hosted DB: two deploy targets, and it isn't fully self-hostable.
@@ -167,7 +167,7 @@ Updated incrementally as decisions are locked in.
 - *(Superseded 2026-10-28: Groq Whisper large-v3-turbo. The original details follow.)*
 - Videos only; slideshows skip this step (§4.1.1). Transcription runs in the same Convex action as the Claude call (§1.1.3). The action reads the clip from Convex storage and POSTs it to Groq's OpenAI-compatible transcription endpoint (`whisper-large-v3-turbo`, `verbose_json` for segment timestamps). The transcript and its segments are saved on the report.
 - Groq accepts the browser's webm/mp4 directly, so there's no ffmpeg step. The free-tier file limit is about 25 MB, and clips stay well under it (§4.1.1).
-  - (2026-10-25, US8) One limit everywhere: `MAX_CLIP_BYTES = 25,000,000` bytes (`convex/lib/clipLimit.ts`), used by posts, the admin intake and transcription. It's 25,000,000 rather than 25 MiB so a clip that passes our checks can't fail at Groq, whichever unit Groq means.
+  - (2026-10-25, US8) One limit everywhere: `MAX_CLIP_BYTES = 25,000,000` bytes (`server/lib/clipLimit.ts`), used by posts, the admin intake and transcription. It's 25,000,000 rather than 25 MiB so a clip that passes our checks can't fail at Groq, whichever unit Groq means.
 - Whisper can invent text on near-silent clips ("Thanks for watching"). Claude's prompt treats the transcript as untrusted and possibly empty.
 - Cost: about $0.04 per hour of audio, billed at a 10s minimum per request. Effectively free at every scale we plan for.
 - Key: `GROQ_API_KEY`, kept in Convex env only.
@@ -257,7 +257,7 @@ Updated incrementally as decisions are locked in.
 
 **3.1.1 Resident identity — device token in the DB (no auth provider)**
 - On first visit the browser generates a random UUID and stores it in `localStorage` (wrapped in try/catch; if storage fails, generate a fresh token for this session).
-- A Convex mutation upserts `residents {token, createdAt}`.
+- A route handler upserts `residents {token, createdAt}` (`caller.resident()` in `server/auth.ts`).
 - Post and me-too mutations take the token, and the server resolves it to `residentId`. `meToos` uniqueness is per (report, resident), per §2.1.1.
 - No login screen, no password, no third party.
 - Known weaknesses, accepted for the hackathon: anyone holding a token can act as that resident, and clearing storage makes a new resident, which can inflate me-too counts.
@@ -270,17 +270,17 @@ Updated incrementally as decisions are locked in.
 
 **3.1.2 Fixer access — a passcode per fixer, DB-only**
 - `fixers {name, org, passcode, token}`, seeded by hand (e.g. "Mableton Sanitation / 4821"). `token` is issued at the first passcode check and reused after that.
-- A hidden `/fix` route asks for the passcode once. A Convex mutation checks it server-side and returns a fixer token, which the browser stores in `localStorage` (screen: §5.3.1).
+- A hidden `/fix` route asks for the passcode once. A route handler checks it server-side and returns a fixer token, which the browser stores in `localStorage` (screen: §5.3.1).
 - The fix mutation refuses any request without a valid fixer token. Any fixer can close any `open` report.
 - The fixed card shows the fixer's **org** ("Fixed by Mableton Sanitation"), never a person's name (Scope: "no workers shown").
 - Prize check (2026-10-24): none of the target tracks scores auth. Microsoft's "path from prototype to production" is answered by a pitch line instead: "Pilot: residents sign in with Google or phone, and city staff use the city's single sign-on." The only auth prize is MLH Auth0 (headphones), not worth the setup.
-- Known weaknesses, accepted for the hackathon (2026-10-25, US21): there's no limit on passcode guesses, and a passcode is revoked only by deleting its fixer row in the Convex dashboard (re-seeding a fixer under a new passcode leaves the old one working).
+- Known weaknesses, accepted for the hackathon (2026-10-25, US21): there's no limit on passcode guesses, and a passcode is revoked only by deleting its fixer row in the database (re-seeding a fixer under a new passcode leaves the old one working).
 - 📌 **Forward reference (§4.3.2)**: whether fixers are limited to reports their org owns (city staff can't close Cobb reports).
 - 📌 Deferred (§8): city single sign-on for fixers in the pilot, and a limit on passcode guesses.
 
 **3.1.3 Dashboard access — public read-only page, unlinked (added 2026-10-28, M1)**
 - The triage dashboard (§5.5) needs no login and has no tab-bar entry, like `/fix` (§5.3.1). Anyone with the URL can open it.
-- It shows only fields public cards already show (§7.1.1), built on the same public-report shape (`convex/lib/publicReport.ts`). No poster, no tokens, no `pending` / `held` reports, and no transcript or captions for `audioMuted` reports.
+- It shows only fields public cards already show (§7.1.1), built on the same public-report shape (`server/lib/publicReport.ts`). No poster, no tokens, no `pending` / `held` reports, and no transcript or captions for `audioMuted` reports.
 - It has no write actions. Closing a report still goes through `/fix` and its passcode (§3.1.2), or "Is it fixed?" (§4.3.2).
 - Rationale: ownership is view-only (Scope addendum 2026-10-28), so a login would protect nothing. A public per-department queue is also on-pitch: residents can see what each agency has open.
 - Rejected:
@@ -362,8 +362,8 @@ Updated incrementally as decisions are locked in.
   - "Post another" shows on Posted, reject, "couldn't find this post", and "screening failed" once the cap is reached. A retake hold never offers it, since a new post would leave this one held instead of replacing its clip. Emergency has "Back to the feed" instead, and "screening failed" has only Try again until the cap.
   - A retake or Try again keeps the original `createdAt`, so days open (§2.1.3) count from the first post, including time spent held. Same as a hand `release`.
   - Debug line, through Oct 30: every held screen shows the raw verdict and reason in small type, and a "screening failed" hold shows what failed (`screeningError`). The stored error is only its first line, cut before any vendor response body (Groq and Claude append JSON that can carry org IDs and rate-limit usage), so a poster sees e.g. "Groq transcription failed (429). Retry after 7 seconds." It stays on screen for both demos. 📌 Removal is tracked in §8.
-- `held` → `open` only by hand, in the Convex dashboard. No moderation UI (§8).
-  - (2026-10-25, US13) The operator tools are `npx convex run screeningDb:release` and `screeningDb:rescreen`.
+- `held` → `open` only by hand, through the admin release route. No moderation UI (§8).
+  - (2026-10-25, US13) The operator tools are the admin routes `/api/admin/release` and `/api/admin/rescreen` (buttons on `/admin/seed`), which need an admin session (§6.1.1).
     - `release` refuses a report with no category or title (rescreen it instead). A `retake`, `emergency` or `reject` report also needs `"force": true`, because precedence means its audio and text were never checked for `mute`. Releasing bumps `lastActivityAt` (§5.1.2).
     - `rescreen` re-runs screening on a `held` report, or on a `pending` one whose screening died (an action that crashes never retries). Only an operator can rescreen a `pending` report; §2.1.3 lists the `held` → `pending` case. A duplicate run is safe, because a result only lands while the report is still `pending` with the same media.
   - (2026-10-25, US13) "Screening failed" also clears the earlier result (category, title, owner, agency, mute), so a report retaken after a verdict can't be released with the old verdict's fields.
@@ -470,7 +470,7 @@ Updated incrementally as decisions are locked in.
   - Each row: agency name, owner chip (§2.1.2 owner labels), open count, fixed count.
   - Sorted by open count, descending. **"Routing unclear"** always sits last, whatever its count.
 - Tapping a group opens `/gov/<agency-slug>`, that group's queue (§5.5.2). The slug comes from the agency string, since there's no stored id (§2.1.4).
-- Counts are `open` / `fixed` reports only (§2.1.3). They update live: through Convex subscriptions on the Convex build, and by `useLive` polling about every 10 s on the Postgres stack, like the feed and map (§1.1.1). *(Corrected 2026-10-28: Oct 30 runs on Postgres; US44 ports the queries.)*
+- Counts are `open` / `fixed` reports only (§2.1.3). They update live: by `useLive` polling about every 10 s, like the feed and map (§1.1.1). *(Corrected 2026-10-28: Oct 30 runs on Postgres; US44 ports the queries.)*
 - Rationale: the overview is the Mayor's "who has what", and the group page is a department's "what's mine". Listing empty agencies is honest and keeps the list stable during the demo.
 - Rejected:
   - One page with group filter chips: no comparison across groups at a glance.
@@ -499,7 +499,7 @@ Updated incrementally as decisions are locked in.
 - `?demo=<city id>` swaps the phone's GPS for a fixed point next to the seeds and shows a **"Demo mode: location simulated"** banner. Posting defaults to that point, but a manually selected pin overrides it; the duplicate check (§4.1.2) and the fix geofence (§4.3.1) use their respective selected/current points.
 - **City profile** (2026-10-25, US25, user decision; supersedes the Mableton placement for Cal Hacks):
   - Everything runs in San Francisco, where the team and the samples are, and the demo is live at the Palace of Fine Arts.
-  - `ACTIVE_CITY` (`convex/lib/city.ts`) is `SAN_FRANCISCO`. It sets the routing table (§2.1.2), "residents of San Francisco, California" in both Claude prompts, the map's default center (Civic Center) and title, and the seed presets (SF street corners).
+  - `ACTIVE_CITY` (`server/lib/city.ts`) is `SAN_FRANCISCO`. It sets the routing table (§2.1.2), "residents of San Francisco, California" in both Claude prompts, the map's default center (Civic Center) and title, and the seed presets (SF street corners).
   - `DEMO_POINT` is on Baker St beside the Palace lagoon, with `?demo=sf`. The pothole preset is 28 m from it and the before/after spot 39 m.
   - ~~Oct 30 sets `ACTIVE_CITY = MABLETON`, which restores the Mableton table, prompts and center, Clay Rd SW as `DEMO_POINT`, and `?demo=mableton`.~~
   - **Retcon (2026-10-28, user decision):** Oct 30 also runs as `SAN_FRANCISCO`, with the SF reports already in the database left as they are. No city flip and no data wipe. Reason: the user wants to demo the SF data. This also avoids leftover SF reports being regrouped under Mableton agencies on `/gov`, since reports have no city field and groups come from the active table (§2.1.4). The Mableton profile stays in code as a one-line switch for the pilot.
@@ -510,9 +510,9 @@ Updated incrementally as decisions are locked in.
   2. Post a new clip live.
   3. Play a pre-filmed before/after pair of the same California spot. Claude verifies it, and the reveal plays (§5.1.1).
 - Needs before/after pairs filmed at the same spot, so Claude's same-spot check passes honestly.
-- **Seeding** (sweep, 2026-10-24): an admin-only Convex action runs each sample clip through the real pipeline (transcription, then screening, §1.1.3/§1.1.4/§4.2.1), so Claude really did screen the seeds.
+- **Seeding** (sweep, 2026-10-24): an admin-only route enqueues each sample clip through the real pipeline (transcription, then screening, §1.1.3/§1.1.4/§4.2.1), so Claude really did screen the seeds.
   - Build details (2026-10-25, US25):
-    - `/admin/seed` calls `convex/seed.ts`, which checks `ADMIN_PASSCODE` on every call. The raw passcode is sent each time, with no session token and no limit on guesses (see §8).
+    - `/admin/seed` calls the admin routes (`app/api/admin/`). The page signs in once with `ADMIN_PASSCODE` and keeps a 30-minute admin session in memory, which every call carries. There is no limit on passcode guesses (see §8).
     - A sample is inserted with `isSample: true` from the start, not after screening. That way going public skips the feed bump (§5.1.2) and the purge skips it (§7.1.1).
     - One batch's screenings run 10 s apart.
     - Seeded video clips must reach the server as MP4 or WebM, because transcription can't read QuickTime. (2026-10-25, US14) The seed page now converts a `.mov` (or a clip over 25 MB or 20.5 s) as soon as it's picked, inside that tap so iPhone keeps the sound; fix clips convert without sound (§4.3.1).
@@ -575,7 +575,7 @@ Updated incrementally as decisions are locked in.
 - **Never public:** no query returns the poster, the me-too list, resident tokens or fixer tokens. The one exception is the Me page (§5.4.1): a query keyed by your own token returns only your own posts and me-toos. Only counts and the fixer's org (§3.1.2) are public.
 - **Muted reports:** for `audioMuted` reports (§4.2.1), queries never return the transcript or captions.
 - **Retention:**
-  - `held` clips (retake / reject / emergency / screening failed; never public) are deleted after 7 days by a Convex cron. The report row and its me-toos go too (2026-10-24). Unverified fix-attempt clips older than 7 days are also deleted.
+  - `held` clips (retake / reject / emergency / screening failed; never public) are deleted after 7 days by the nightly `purgeExpired` pg-boss job. The report row and its me-toos go too (2026-10-24). Unverified fix-attempt clips older than 7 days are also deleted.
     - (2026-10-25) Age runs from the newest file upload, so a retake (§4.2.1) restarts the 7 days. Samples (§6.1.1) are never purged, because their `createdAt` is backdated.
   - Published reports (`open` / `fixed`) are kept indefinitely; the public record is the point.
 - Rejected:
@@ -595,7 +595,7 @@ Updated incrementally as decisions are locked in.
 - Video hosting at pilot scale (free-tier bandwidth)
 - Database read bandwidth of the live map query (2026-10-25, accepted for M0): `mapReports` (§5.2.1) reads every public report in full (~1.5–2 KB each, mostly transcript and segments) and re-runs on every write to an open or fixed report while anyone has the map open: posts clearing screening, me-toos, fixes, and reveal-view counts (§6.2.1, one write per viewer per session per fixed card, so ~50 people scrolling past 5 fixed cards add ~250 re-runs). The feed query has the same shape but wasn't measured here. Convex caches it across viewers. At 100 reports that is ~200 KB per re-run, or ~5,000 re-runs in the 1 GiB/month free tier. Revisit when the Convex dashboard shows database bandwidth above ~50% of the free tier, or above ~500 public reports. Options then: move transcript/segments/description into their own table, or keep a slim map-pin table
 - Reveal-view counter abuse (2026-10-25, accepted for M0): `recordRevealView` (§6.2.1) takes no token, so a script looping over public report IDs can inflate `revealViews`. Each call is also a write that re-runs the feed and map queries for every viewer (see the bandwidth item above). A resident token wouldn't stop it, since tokens are made on the client (§3.1.1). Options then: a per-resident server-side dedup table, or a rate limit.
-- Staff moderation queue for flagged posts (until then, `held` is released by hand in the Convex dashboard, §4.2.1)
+- Staff moderation queue for flagged posts (until then, `held` is released by hand through the admin release route, §4.2.1)
 - Strip audio server-side from `mute`-verdict clips (§4.2.1)
 - Onboarding real fixers (city staff, contractors) with the city
 - Mableton test-week logistics
@@ -612,7 +612,7 @@ Updated incrementally as decisions are locked in.
 - Audio in clips for the Mableton pilot (privacy of narration and bystander voices; consider silent clips plus a text note)
 - Reports stuck in `pending` (2026-10-25, US13; manual for M0 via `rescreen`, §4.2.1): if Groq or Gemini hangs until the action times out, no retry is scheduled, and the purge only removes `held` reports. Options: request timeouts in `transcribe` / `callGeminiJSON`, or a cron that holds stale `pending` reports as "screening failed"
 - iPhone `video/quicktime` clips (native-camera fallback, demo upload) always end "screening failed", because `transcribe` (US11) accepts only mp4/webm. Filed on US11. (2026-10-25, US14) Every in-app path now converts a `.mov` to MP4/WebM in the browser first (posts, fixes, `/admin/video-intake`, and `/admin/seed` via `normalizeClip`, §4.1.1)
-- Retake deletes files another report might share (2026-10-25, US14, accepted for M0): `retakeReport` deletes the old clip and frames right away, and `createReport` doesn't check who uploaded a file or whether another report uses it. Someone holding another report's storage ID could post it, get a `retake`, and retake to delete it (purge already allows this after 7 days). Low risk, since no query returns another report's storage IDs: public reports carry file URLs only (`convex/lib/publicReport.ts`). Options then: check uploads belong to the poster, or skip files another report references (needs an index)
+- Retake deletes files another report might share (2026-10-25, US14, accepted for M0): `retakeReport` deletes the old clip and frames right away, and `createReport` didn't check who uploaded a file or whether another report uses it (on the M1 stack it does: `isUploadedBy` plus `assertKeysUnused`, §1.1.1). Someone holding another report's storage ID could post it, get a `retake`, and retake to delete it (purge already allows this after 7 days). Low risk, since no query returns another report's storage IDs: public reports carry file URLs only (`server/lib/publicReport.ts`). Options then: check uploads belong to the poster, or skip files another report references (needs an index)
 - Triage dashboard nice-to-haves (2026-10-28, cut from M1, §5.5): a group sends back a report Claude categorized wrong (re-tag → re-route); per-group stats beyond counts (median days to verified fix, share fixed in 30 days, from §6.2.1); row actions beyond a single tap (watch inline, open on map, record fix)
 - Remove the held-post debug line (raw verdict, reason and `screeningError` on the poster's screens, §4.2.1) after Mableton demo day (Oct 30). It stays on for the Cal Hacks and Oct 30 demos
 
@@ -698,4 +698,4 @@ Updated incrementally as decisions are locked in.
 
 **Partner handoff (wireframes in Claude Cowork):** read Scope, Scope addendum, §4.1 (capture: video / slideshow / description / duplicate check), §4.2.1 (Checking… and verdict screens, incl. Call 911), §5.1–§5.5, §6.1.1 (Sample badge, demo banner). §5 entries are directional: content and behavior are fixed, layout is the partner's call.
 
-**Triage dashboard (M1, design locked 2026-10-28):** §2.1.4 (group key), §3.1.3 (access), §5.5.1–§5.5.2 (surfaces), §6.1.2 (stage beat). Next: generate M1 cards per CLAUDE.md into `.planning/M1-issues.json` for review. Then build: one Convex query grouping public reports by `routing[category].agency`, then `/gov` and `/gov/<slug>`.
+**Triage dashboard (M1, design locked 2026-10-28):** §2.1.4 (group key), §3.1.3 (access), §5.5.1–§5.5.2 (surfaces), §6.1.2 (stage beat). Next: generate M1 cards per CLAUDE.md into `.planning/M1-issues.json` for review. Then build: one query grouping public reports by `routing[category].agency`, then `/gov` and `/gov/<slug>`.
