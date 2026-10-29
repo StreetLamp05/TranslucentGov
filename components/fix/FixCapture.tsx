@@ -1,26 +1,27 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import VideoRecorder, { type RecordedClip } from "@/components/capture/VideoRecorder";
-import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
 import { tooFarMessage } from "@/server/lib/fixRules";
 import { haversineMeters, NEARBY_METERS } from "@/server/lib/geo";
 import { CLIP_TOO_BIG } from "@/server/lib/postLimits";
-import type { PublicReport } from "@/convex/lib/publicReport";
+import type { PublicReport } from "@/server/lib/publicReport";
+import { ApiError, mutate, query } from "@/lib/data/api";
+import { LIVE_STATUS_MS, useLive } from "@/lib/data/useLive";
 import { useCurrentLocation, type LocationState } from "@/lib/hooks/useCurrentLocation";
-import { uploadFile } from "@/lib/upload";
+import { uploadProof } from "./uploadProof";
 
 // Proof-of-fix capture (§4.3.1, §5.3.1), for a fixer (/fix/[reportId]) and for a neighbor
 // confirming a report the city doesn't own (/confirm/[reportId], §4.3.2): the 50 m geofence,
 // a silent clip, then Checking… until Claude's verdict. Demo mode's "Upload clip" comes with
 // VideoRecorder (§6.1.1).
 
+// Who is submitting. The tokens themselves ride on the identity headers lib/data/api.ts sends;
+// this only picks which one the server should check.
 export type FixAuth = { fixerToken: string } | { residentToken: string };
+const authKind = (auth: FixAuth) => ("fixerToken" in auth ? "fixer" : "resident") as "fixer" | "resident";
 
 type Props = {
   /** Live from the page's subscription, so a fix by someone else shows up here. */
@@ -34,7 +35,7 @@ type Step =
   | { kind: "ready"; error?: string }
   | { kind: "recording" }
   | { kind: "sending" }
-  | { kind: "checking"; attemptId: Id<"fixAttempts"> };
+  | { kind: "checking"; attemptId: string };
 
 // How often to ask for a new GPS fix while the capture screen is up.
 const RECHECK_MS = 5000;
@@ -45,11 +46,17 @@ const LOCATION_LOST = "We lost your location. Try again once it's back.";
 // Verdicts that send you back to record again, with Claude's reason (§4.3.1) or US22's FAILED_REASON.
 const RETRY_TITLE = { not_fixed: "Not fixed yet", retake: "Try another take", failed: "We couldn't check this clip" };
 
+type FixAttemptView = {
+  reportId: string;
+  status: "checking" | "verified" | "not_fixed" | "retake" | "failed" | "superseded";
+  reason?: string;
+};
+
 const button = "w-full rounded-xl bg-[#0F1E33] py-3 font-bold text-white disabled:opacity-40";
 
 export default function FixCapture({ report, auth, onStart }: Props) {
   const location = useCurrentLocation();
-  const submitFix = useMutation(api.fixes.submitFix);
+  const as = authKind(auth);
   const [step, setStep] = useState<Step>({ kind: "ready" });
   const recorderRef = useRef<HTMLElement>(null);
 
@@ -85,15 +92,21 @@ export default function FixCapture({ report, auth, onStart }: Props) {
     const { lat, lng } = location.point;
     setStep({ kind: "sending" });
     try {
-      const uploadAuth = "fixerToken" in auth ? { fixerToken: auth.fixerToken } : undefined;
       const [clipStorageId, frameStorageIds] = await Promise.all([
-        uploadFile(clip.blob, uploadAuth),
-        Promise.all(clip.frames.map((frame) => uploadFile(frame, uploadAuth))),
+        uploadProof(clip.blob, as, "video"),
+        Promise.all(clip.frames.map((frame) => uploadProof(frame, as, "image"))),
       ]);
-      const attemptId = await submitFix({ reportId: report._id, clipStorageId, frameStorageIds, lat, lng, ...auth });
+      const attemptId = await mutate<string>("/api/fixes", {
+        as,
+        reportId: report._id,
+        clipStorageId,
+        frameStorageIds,
+        lat,
+        lng,
+      });
       setStep({ kind: "checking", attemptId });
     } catch (err) {
-      setStep({ kind: "ready", error: err instanceof ConvexError && typeof err.data === "string" ? err.data : SEND_ERROR });
+      setStep({ kind: "ready", error: err instanceof ApiError && typeof err.data === "string" ? err.data : SEND_ERROR });
     }
   }
 
@@ -109,7 +122,7 @@ export default function FixCapture({ report, auth, onStart }: Props) {
     );
   }
   if (step.kind === "checking") {
-    return <AttemptResult attemptId={step.attemptId} auth={auth} reportId={report._id} onRetry={retry} />;
+    return <AttemptResult attemptId={step.attemptId} as={as} reportId={report._id} onRetry={retry} />;
   }
   if (step.kind === "sending") {
     return <Checking text="Sending your clip…" />;
@@ -170,19 +183,24 @@ function LocationProblem({ location }: { location: LocationState & { refresh: ()
   );
 }
 
-// Checking… until verifyFix (US22) settles the attempt, then its verdict.
+// Checking… until verifyFix (the worker job) settles the attempt, then its verdict.
 function AttemptResult({
   attemptId,
-  auth,
+  as,
   reportId,
   onRetry,
 }: {
-  attemptId: Id<"fixAttempts">;
-  auth: FixAuth;
-  reportId: Id<"reports">;
+  attemptId: string;
+  as: "fixer" | "resident";
+  reportId: string;
   onRetry: () => void;
 }) {
-  const attempt = useQuery(api.fixes.myFixAttempt, { attemptId, ...auth });
+  // Polled until the worker settles the attempt, so the verdict shows without a refresh.
+  const attempt = useLive(
+    `fix-attempt:${attemptId}`,
+    (signal) => query<FixAttemptView | null>("/api/fixes/attempt", { attemptId, as }, { signal }),
+    { intervalMs: LIVE_STATUS_MS },
+  );
   const feedLink = <FeedLink reportId={reportId} />;
   const tryAgain = (
     <button type="button" onClick={onRetry} className={button}>
@@ -216,7 +234,7 @@ function AttemptResult({
   }
 }
 
-function FeedLink({ reportId }: { reportId: Id<"reports"> }) {
+function FeedLink({ reportId }: { reportId: string }) {
   return (
     <Link href={`/?report=${reportId}`} className={`${button} block text-center`}>
       See it in the feed

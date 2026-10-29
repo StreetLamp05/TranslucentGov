@@ -1,16 +1,21 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { ConvexError } from "convex/values";
 import { useEffect, useState, type FormEvent } from "react";
 import FixerList from "@/components/fix/FixerList";
-import { api } from "@/convex/_generated/api";
+import { ApiError, mutate, query } from "@/lib/data/api";
+import { LIVE_LIST_MS, useLive } from "@/lib/data/useLive";
 import { clearFixerToken, setFixerToken, useFixerToken } from "@/lib/hooks/useFixerToken";
+import type { PublicReport } from "@/server/lib/publicReport";
 
 // Hidden fixer route, no tab (§5.3.1): the passcode once (§3.1.2), then open reports nearest first.
 export default function FixPage() {
   const token = useFixerToken();
-  const session = useQuery(api.fixers.fixerSession, token ? { fixerToken: token } : "skip");
+  // The org, or null when the server no longer knows the token.
+  const session = useLive(
+    token ? `fixer-session:${token}` : null,
+    (signal) => query<{ org: string } | null>("/api/fixers/session", {}, { signal }),
+    { intervalMs: LIVE_LIST_MS },
+  );
 
   // A token the server no longer knows (fixer re-seeded or removed) sends you back to the passcode.
   useEffect(() => {
@@ -29,7 +34,6 @@ export default function FixPage() {
 }
 
 function PasscodeForm() {
-  const login = useMutation(api.fixers.fixerLogin);
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,10 +43,10 @@ function PasscodeForm() {
     setBusy(true);
     setError(null);
     try {
-      const { token } = await login({ passcode });
+      const { token } = await mutate<{ token: string; org: string }>("/api/fixers/login", { passcode });
       setFixerToken(token);
     } catch (err) {
-      setError(err instanceof ConvexError ? String(err.data) : "Couldn't check the passcode. Try again.");
+      setError(err instanceof ApiError && err.data ? err.data : "Couldn't check the passcode. Try again.");
       setBusy(false);
     }
   }
@@ -76,7 +80,11 @@ function PasscodeForm() {
 }
 
 function FixerHome({ token, org }: { token: string; org: string }) {
-  const reports = useQuery(api.fixers.openReportsForFixer, { fixerToken: token });
+  const reports = useLive(
+    `fixer-open-reports:${token}`,
+    (signal) => query<PublicReport[]>("/api/fixers/open-reports", {}, { signal }),
+    { intervalMs: LIVE_LIST_MS },
+  );
   return (
     <>
       <header className="mb-4 flex items-baseline justify-between">

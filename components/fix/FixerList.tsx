@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { haversineMeters, type Point } from "../../server/lib/geo";
-import type { PublicReport } from "../../convex/lib/publicReport";
+import type { PublicReport } from "../../server/lib/publicReport";
 import { OWNER_CHIP } from "../../server/lib/routing";
 import { daysLabel, daysOpen } from "../../lib/days";
 import { useCurrentLocation } from "../../lib/hooks/useCurrentLocation";
@@ -84,7 +84,7 @@ export default function FixerList({ reports }: { reports: readonly PublicReport[
 
 function Thumbnail({ url }: { url: string | null }) {
   if (!url) return <div className="size-16 shrink-0 rounded-lg bg-[#E2E6EA]" />;
-  // Convex storage URLs, so next/image's remote config doesn't apply.
+  // MinIO URLs, so next/image's remote config doesn't apply.
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt="" className="size-16 shrink-0 rounded-lg object-cover" />;
 }
