@@ -1,16 +1,19 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import AgencyQueue from "@/components/gov/AgencyQueue";
-import { api } from "@/convex/_generated/api";
+import { query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
+import type { TriageQueue } from "@/server/lib/triageGroups";
 
 // One agency's queue on the triage dashboard (§5.5.2). Public and read-only, no tab bar
-// (§3.1.3). Updates live through the Convex subscription.
+// (§3.1.3). Updates live by polling (§1.1.1).
 export default function GovGroupPage() {
   const { slug } = useParams<{ slug: string }>();
-  const queue = useQuery(api.triageGroup.queue, { slug });
+  const queue = useLive(`triage:${slug}`, (signal) =>
+    query<TriageQueue | null>(`/api/triage/${encodeURIComponent(slug)}`, {}, { signal }),
+  );
 
   return (
     <main className="mx-auto min-h-dvh max-w-md p-4">

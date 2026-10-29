@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import { isPublicStatus, PUBLIC_STATUSES } from "./lib/publicReport";
 import { ROUTING } from "../server/lib/routing";
-import { agencyForSlug, groupFor, triageQueue, type QueueRow, type TriageQueue } from "./lib/triageGroups";
+import { agencyForSlug, groupFor, triageQueue, type QueueRow, type TriageQueue } from "../server/lib/triageGroups";
 
 // One agency's queue on the triage dashboard (§5.5.2): its open reports ranked by me-toos,
 // then what it has fixed. Public and read-only (§3.1.3); rows are an allowlist, so pending

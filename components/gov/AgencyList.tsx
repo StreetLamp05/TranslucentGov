@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { OWNER_CHIP } from "@/server/lib/routing";
-import type { TriageGroup } from "@/convex/lib/triageGroups";
+import type { TriageGroup } from "@/server/lib/triageGroups";
 
 // /gov's overview (§5.5.1): every agency with its open and fixed counts, in the order the
 // query returns (most open first, "Routing unclear" last). Each row opens that group's queue.

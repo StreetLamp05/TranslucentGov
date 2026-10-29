@@ -1,14 +1,17 @@
 "use client";
 
-import { useQuery } from "convex/react";
 import AgencyList from "@/components/gov/AgencyList";
-import { api } from "@/convex/_generated/api";
+import { query } from "@/lib/data/api";
+import { useLive } from "@/lib/data/useLive";
 import { ACTIVE_CITY } from "@/server/lib/city";
+import type { TriageGroup } from "@/server/lib/triageGroups";
 
 // The triage dashboard (§5.5.1): public, read-only and unlinked, with no tab bar, like /fix
-// (§3.1.3). Counts update live through the Convex subscription.
+// (§3.1.3). Counts update live by polling (§1.1.1).
 export default function GovPage() {
-  const groups = useQuery(api.triage.overview, {});
+  const groups = useLive("triage:overview", (signal) =>
+    query<TriageGroup[]>("/api/triage/overview", {}, { signal }),
+  );
 
   return (
     <main className="mx-auto min-h-dvh max-w-md p-4">
