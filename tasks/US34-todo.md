@@ -44,15 +44,34 @@ Parent F9. Unblocks US35–US39 (each ports a slice of `convex/` onto these piec
 - [x] lib/data/api.ts, lib/data/useLive.ts
 - [x] server/auth.ts, server/http.ts, server/reportMedia.ts
 - [x] Tests: tests/lib/data/{api,useLive}.test.ts, tests/server/http.test.ts (auth resolution + error mapping), tests/server/lib/publicReport.test.ts (reportDoc)
-- [ ] Verify: npm test, build, lint, tsc (root + convex), check:bundle, esbuild-bundle every convex function file
-- [ ] Snapshot message to dispatcher, then review
+- [x] Verify: npm test, build, lint, tsc (root + convex), check:bundle, esbuild-bundle every convex function file
+- [x] Snapshot message to dispatcher, then review
 
-## Progress (paused 2026-10-28: usage limit)
-- Done: all code and tests above. `lib/data/headers.ts` holds the shared header names.
-- Checked: tsc (root and convex) is clean. The new and moved tests pass (9 files, 87 tests).
-- Left:
-  - Run the full `npm test`, `npm run build`, `npm run lint` and `check:bundle`.
-  - esbuild-bundle the convex function files.
-  - Send the "US34 IMPLEMENTED" snapshot to the dispatcher (translucentgov-e5).
-  - Run the review-card round.
-- Note for review: `check-client-bundle.sh` scans all of `.next/`. Once US39 adds admin routes that import `server/lib/auth` (`isAdminPasscode`), it will flag the ADMIN_PASSCODE name.
+
+## Verification (before review)
+- `npm test`: 761/761. `npm run lint`: clean. `tsc` (root and `-p convex`): clean. `next build`: OK. `check:bundle`: clean.
+- A temporary `app/api/us34-probe` route, static and `[id]`, built and passed Next 16's route-handler type check. It was then deleted.
+- That probe showed every route importing `server/http.ts` would carry the ADMIN_PASSCODE name into `.next`, so `isAdminPasscode` moved to `server/lib/adminPasscode.ts`.
+- esbuild bundled all 25 `convex/*.ts` function files, and none pulled in drizzle, pg or S3.
+- No Convex push: this worktree has no confirmed local deployment. `_generated/api.d.ts` was hand-edited to drop the moved modules; the reviewer matched it against the files in `convex/`.
+- The snapshot was committed by the dispatcher as 14f8145.
+
+## Review fixes (one round, review-card v0.2)
+- **F1, blocking.** `useLive` aborted its in-flight request on every tick, so a response slower than `intervalMs` never landed. A status screen on a link slower than 2s spun forever.
+  - Ticks, focus and visibility now skip while a request is out. Only `mutate()` and key changes supersede one.
+  - Regression test: 3s round trips at 2s polling. It fails on 14f8145 and passes now.
+  - This also fixes focus and visibilitychange double-firing.
+- **F3.** The privacy allowlist in `server/lib/publicReport.ts` is checked at compile time again (`satisfies ProjectedReport<ReportDoc>`). Adding `residentId` now fails tsc; confirmed by trying it. The Postgres test checks every private field.
+- **F4.** Stale `convex/lib/city.ts` / `clipLimit.ts` / routing-test paths fixed in README, `presets.ts`, `ReportsMap.tsx`, `lib/demo.ts` and `postLimits.ts`.
+- **F6.**
+  - `route()` calls `unstable_rethrow`, so Next's `redirect()` / `notFound()` aren't turned into 500s. Test added.
+  - `Caller.fixer()` documents that the row holds the passcode and token.
+- **S2.** Comments in the new `server/` and `lib/data/` files say "M0" instead of naming Convex, so US40's `grep -ri convex lib server` has less to clean up.
+- Re-verified: `npm test` 763/763, lint, tsc (root and convex), build, check:bundle.
+
+## Review (2026-10-28)
+- All six ACs were verified by the reviewer with proof. F1 was fixed after the review.
+- Open, not blocking: the items under "Decide" in the final report to the dispatcher. These are F2 input parsing and bad UUIDs, the spec doc's old paths, F5 bundle-check scope, and S1 merge overlap with US32.
+- **F2 (dispatcher decision: add now).** These are additive in `server/http.ts`: `isUuid(value)`, `parseId(value)` (string | null), and `searchArgs(req)` with `.string` / `.optionalString` / `.int` / `.list`. A missing or malformed required value is a 400 UserError.
+  - Tests cover a junk id staying null instead of reaching Postgres (which itself rejects it), and round-tripping through the client's `withArgs`.
+  - `npm test` 767/767, tsc (root and convex), lint.

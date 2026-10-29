@@ -223,9 +223,9 @@ See [.env.example](.env.example), and the tables under "Self-hosting" for the co
 
 The stage flow is in GOVTOK_DECISIONS.md §6.1.1. Everything below runs against **prod**, after the branch has merged. Add `--prod` to every `npx convex run`.
 
-The app runs as one city at a time: `ACTIVE_CITY` in `convex/lib/city.ts`. **Cal Hacks (Oct 25) runs as San Francisco**, demoed at the Palace of Fine Arts. That one constant sets the routing table (SF Public Works, SFMTA, SFPUC, PG&E, Recology), the Claude prompts, the map center, `DEMO_POINT` (Baker St beside the Palace) and the seed presets. Demo mode is `?demo=sf`.
+The app runs as one city at a time: `ACTIVE_CITY` in `server/lib/city.ts`. **Cal Hacks (Oct 25) runs as San Francisco**, demoed at the Palace of Fine Arts. That one constant sets the routing table (SF Public Works, SFMTA, SFPUC, PG&E, Recology), the Claude prompts, the map center, `DEMO_POINT` (Baker St beside the Palace) and the seed presets. Demo mode is `?demo=sf`.
 
-**For Mableton demo day (Oct 30):** set `ACTIVE_CITY = MABLETON`, then update the two tests pinned to Cal Hacks (`tests/convex/lib/routing.test.ts`, `tests/app/admin/seed/presets.test.ts`) and merge. Demo mode becomes `?demo=mableton`. Reports seeded under SF keep their SF agencies, so delete them or re-seed.
+**For Mableton demo day (Oct 30):** set `ACTIVE_CITY = MABLETON`, then update the two tests pinned to Cal Hacks (`tests/server/lib/routing.test.ts`, `tests/app/admin/seed/presets.test.ts`) and merge. Demo mode becomes `?demo=mableton`. Reports seeded under SF keep their SF agencies, so delete them or re-seed.
 
 ### 1. Seed (the night before)
 

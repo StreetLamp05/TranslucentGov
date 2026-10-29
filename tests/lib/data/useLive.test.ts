@@ -127,14 +127,42 @@ describe("useLive", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  test("the newest request wins over a slower, older one", async () => {
+  test("a response slower than intervalMs still lands: ticks wait instead of cancelling it", async () => {
+    // A phone on venue Wi-Fi: every round trip takes 3 s against 2 s polling.
+    const fetcher = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<string>((resolve, reject) => {
+          const timer = setTimeout(() => resolve("verdict"), 3000);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        }),
+    );
+    const { result } = renderHook(() => useLive("k", fetcher, { intervalMs: 2000 }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+      window.dispatchEvent(new Event("focus"));
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(result.current).toBe("verdict");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect((fetcher.mock.calls[0][0] as AbortSignal).aborted).toBe(false);
+
+    // Polling carries on once it's back.
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  test("a mutate() supersedes a request already out, and the newest response wins", async () => {
     const first = deferred<string>();
     const second = deferred<string>();
     const fetcher = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
     const { result } = renderHook(() => useLive("k", fetcher, { intervalMs: 60_000 }));
 
     await act(async () => {
-      window.dispatchEvent(new Event("focus"));
+      await mutate("/api/me-too", {});
     });
     second.resolve("new");
     await flush();

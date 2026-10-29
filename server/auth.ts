@@ -12,7 +12,7 @@ import {
 import { UserError } from "./lib/errors";
 
 // Device-token identity (§3.1.1), fixer tokens (§3.1.2) and admin sessions, on Postgres: the
-// same lookups and messages as M0's convex/lib/auth.ts and requireAdminSession. Route handlers
+// same lookups and messages as M0's auth helpers and requireAdminSession. Route handlers
 // reach them through `ctx.caller` (server/http.ts). A missing or bad credential is a 401.
 
 /** Writes: resolves the device token to a resident, creating one on first use. */

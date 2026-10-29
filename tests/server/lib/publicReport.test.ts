@@ -57,9 +57,23 @@ describe("publicReport on Postgres", () => {
     expect(new URL(pub.clipUrl!).pathname).toBe("/govtok/clip-key");
     expect(pub.frameUrls.map((url) => new URL(url!).pathname)).toEqual(["/govtok/frame-1", "/govtok/frame-2"]);
     expect(pub.fixUrl).toBeNull();
-    expect(pub).not.toHaveProperty("residentId");
-    expect(pub).not.toHaveProperty("verdict");
-    expect(pub).not.toHaveProperty("reason");
+    // Every stored field that isn't public (§7.1.1).
+    for (const field of [
+      "id",
+      "creationTime",
+      "residentId",
+      "verdict",
+      "reason",
+      "screeningError",
+      "screeningRetries",
+      "clipStorageId",
+      "frameStorageIds",
+      "fixStorageId",
+      "fixedBy",
+      "fixedByOrg",
+    ]) {
+      expect(pub).not.toHaveProperty(field);
+    }
     expect(pub.description).toBe("Cars swerve around it");
   });
 

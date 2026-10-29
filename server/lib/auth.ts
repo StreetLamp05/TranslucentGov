@@ -1,6 +1,6 @@
 // The parts of identity (§3.1) that need no database: token cleanup, secret comparison and the
-// messages callers see. The lookups are server/auth.ts on Postgres and convex/lib/auth.ts on
-// Convex, so both backends answer a bad token the same way. The admin passcode check is
+// messages callers see. The lookups are server/auth.ts on Postgres and M0's auth helpers, so
+// both backends answer a bad token the same way. The admin passcode check is
 // server/lib/adminPasscode.ts.
 
 export const MISSING_DEVICE_TOKEN = "Missing device token";

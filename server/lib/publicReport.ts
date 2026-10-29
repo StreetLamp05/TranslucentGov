@@ -10,7 +10,7 @@ import type { Category, Owner } from "./routing";
 // It works on either backend. A report is a ReportDoc, the document shape the browser has
 // always read (`_id`, `_creationTime`, absent fields undefined); `reportDoc` turns a Postgres
 // row into one. ReportMedia supplies media URLs and fixer orgs (server/reportMedia.ts on
-// Postgres, convex/lib/publicReport.ts on Convex).
+// Postgres, the M0 wrapper on M0).
 
 export type ReportStatus = Report["status"];
 
@@ -104,7 +104,7 @@ type ProjectedReport<R extends ReportDoc> = Pick<
     fixedByLabel?: string;
   };
 
-// Generic over the report type so Convex keeps its Id-typed `_id` (convex/lib/publicReport.ts).
+// Generic over the report type so the M0 wrapper keeps its Id-typed `_id`.
 export type PublicReport<R extends ReportDoc = ReportDoc> = Omit<ProjectedReport<R>, "status"> & {
   status: PublicStatus;
 };
@@ -158,7 +158,9 @@ async function project<R extends ReportDoc>(media: ReportMedia, report: R): Prom
     fixedByLabelOf(media, report),
   ]);
 
-  return {
+  // `satisfies` keeps the allowlist checked: a field not in ProjectedReport fails to compile.
+  // The cast after it only restores R's own id types.
+  const projected = {
     _id: report._id,
     _creationTime: report._creationTime,
     mediaType: report.mediaType,
@@ -186,7 +188,8 @@ async function project<R extends ReportDoc>(media: ReportMedia, report: R): Prom
     frameUrls,
     fixUrl,
     fixedByLabel,
-  } as ProjectedReport<R>;
+  } satisfies ProjectedReport<ReportDoc>;
+  return projected as ProjectedReport<R>;
 }
 
 // Shown only if a fixer's fix has no org recorded and the fixer row is gone.

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { subscribeToMutations } from "./api";
 
-// Live data by polling (§1.1.1), standing in for Convex's useQuery subscriptions:
+// Live data by polling (§1.1.1), standing in for M0's useQuery subscriptions:
 //
 //   const report = useLive(token ? `report:${reportId}` : null,
 //     (signal) => query<OwnerReport>("/api/posts/mine", { reportId }, { signal }),
@@ -14,7 +14,10 @@ import { subscribeToMutations } from "./api";
 // anew. It refetches every `intervalMs` while the tab is visible, when the window regains focus
 // or the tab becomes visible, and right after any `mutate()` from lib/data/api.ts.
 //
-// The newest request wins, so a slow response never overwrites a fresher one. A response equal
+// A tick, focus or visibility change while a request is still out waits for it rather than
+// cancelling it, so a link slower than `intervalMs` still loads. A mutate() does cancel it,
+// since that response may predate the write. The newest request wins, so a slow response
+// never overwrites a fresher one. A response equal
 // to the current value keeps the same object, so a poll that changes nothing re-renders nothing.
 // A failed fetch keeps the last value and tries again on the next trigger: HTTP polling drops
 // requests a websocket wouldn't, and a screen shouldn't blank or crash on one.
@@ -43,12 +46,14 @@ export function useLive<T>(
     if (key === null) return;
     let latest = 0;
     let controller: AbortController | null = null;
+    let inFlight = false;
     let disposed = false;
 
     async function refetch() {
       const id = ++latest;
       controller?.abort();
       const current = (controller = new AbortController());
+      inFlight = true;
       try {
         const value = await fetcherRef.current(current.signal);
         if (disposed || id !== latest) return;
@@ -57,22 +62,26 @@ export function useLive<T>(
       } catch (error) {
         if (disposed || id !== latest || current.signal.aborted) return;
         console.warn(`useLive(${key}): fetch failed, keeping the last value`, error);
+      } finally {
+        if (id === latest) inFlight = false;
       }
     }
 
-    const visible = () => document.visibilityState !== "hidden";
-    const onVisibility = () => visible() && refetch();
+    // Ticks, focus and visibility: only when nothing is out already (see above).
+    const poll = () => {
+      if (!inFlight && document.visibilityState !== "hidden") void refetch();
+    };
     void refetch();
-    const timer = setInterval(() => visible() && refetch(), intervalMs);
-    window.addEventListener("focus", refetch);
-    document.addEventListener("visibilitychange", onVisibility);
+    const timer = setInterval(poll, intervalMs);
+    window.addEventListener("focus", poll);
+    document.addEventListener("visibilitychange", poll);
     const unsubscribe = subscribeToMutations(refetch);
     return () => {
       disposed = true;
       controller?.abort();
       clearInterval(timer);
-      window.removeEventListener("focus", refetch);
-      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", poll);
+      document.removeEventListener("visibilitychange", poll);
       unsubscribe();
     };
   }, [key, intervalMs]);

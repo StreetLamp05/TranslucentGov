@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ADMIN_SESSION_HEADER, FIXER_TOKEN_HEADER, RESIDENT_TOKEN_HEADER } from "@/lib/data/headers";
 import { db } from "@/server/db";
 import { fixers, residents, videoIntakeAdminSessions } from "@/server/db/schema";
-import { callerFrom, readJson, route } from "@/server/http";
+import { withArgs } from "@/lib/data/api";
+import { callerFrom, isUuid, parseId, readJson, route, searchArgs } from "@/server/http";
 import { UserError } from "@/server/lib/errors";
 
 // The route-handler wrapper (§1.1.1) on PGlite: identity resolves the way M0's
@@ -144,6 +145,12 @@ describe("route", () => {
     log.mockRestore();
   });
 
+  it("lets Next's redirect() through instead of turning it into a 500", async () => {
+    const { redirect } = await import("next/navigation");
+    const handler = route(async () => redirect("/fix"));
+    await expect(handler(request(), noParams)).rejects.toMatchObject({ digest: expect.stringContaining("NEXT_REDIRECT") });
+  });
+
   it("resolves identity only when the handler asks, so a read never creates a resident", async () => {
     await call(async () => "no identity needed", request({ [RESIDENT_TOKEN_HEADER]: "device-2" }));
     expect(await residentCount()).toBe(0);
@@ -166,5 +173,48 @@ describe("route", () => {
     expect(body).toBe(true);
     const [row] = await db.select().from(residents).where(eq(residents.token, "device-3"));
     expect(row).toBeDefined();
+  });
+});
+
+describe("parseId", () => {
+  it("passes a UUID through and turns anything else into null instead of a Postgres error", async () => {
+    const [row] = await db.insert(residents).values({ token: "t", createdAt: 1 }).returning();
+    expect(isUuid(row.id)).toBe(true);
+    expect(parseId(row.id)).toBe(row.id);
+    expect(parseId(row.id.toUpperCase())).toBe(row.id.toUpperCase());
+
+    for (const bad of ["garbage", "", "1234", `${row.id}x`, null, undefined, 42, ["a"]]) {
+      expect(parseId(bad)).toBeNull();
+    }
+  });
+
+  it("is what keeps a junk id a clean miss: Postgres itself rejects one", async () => {
+    await expect(db.select().from(residents).where(eq(residents.id, "garbage"))).rejects.toThrow();
+  });
+});
+
+describe("searchArgs", () => {
+  // Built with the client's own encoder, so the two sides agree.
+  const args = (query: Parameters<typeof withArgs>[1]) =>
+    searchArgs(new Request(`https://govtok.test${withArgs("/api/x", query)}`));
+
+  it("reads strings, whole numbers and repeated keys as query() sends them", () => {
+    const a = args({ reportId: "r1", limit: 20, reportIds: ["a", "b"], skip: undefined });
+    expect(a.string("reportId")).toBe("r1");
+    expect(a.int("limit")).toBe(20);
+    expect(a.list("reportIds")).toEqual(["a", "b"]);
+    expect(a.list("none")).toEqual([]);
+    expect(a.optionalString("skip")).toBeUndefined();
+  });
+
+  it("a missing or malformed required value is a 400 with a user-facing message", async () => {
+    const a = args({ limit: "ten", lat: 1.5 });
+    expect(() => a.string("reportId")).toThrow(new UserError("Missing reportId."));
+    expect(() => a.int("limit")).toThrow(new UserError("limit must be a whole number."));
+    expect(() => a.int("lat")).toThrow("lat must be a whole number.");
+
+    const { status, body } = await call(async (req) => searchArgs(req).int("limit"), request());
+    expect(status).toBe(400);
+    expect(body).toEqual({ error: "Missing limit." });
   });
 });

@@ -2,8 +2,8 @@ import { getFixerToken } from "@/lib/hooks/useFixerToken";
 import { getResidentToken } from "@/lib/hooks/useResidentToken";
 import { ADMIN_SESSION_HEADER, FIXER_TOKEN_HEADER, RESIDENT_TOKEN_HEADER } from "./headers";
 
-// The browser's side of the route handlers under app/api/ (§1.1.1), standing in for the Convex
-// client. Every call carries the caller's identity as headers, from the same places the Convex
+// The browser's side of the route handlers under app/api/ (§1.1.1), standing in for the M0
+// client. Every call carries the caller's identity as headers, from the same places the M0
 // calls read it: the device token (§3.1.1), the fixer token when logged in (§3.1.2), and the
 // admin session from the video-intake login. server/http.ts reads them back.
 //
@@ -11,12 +11,12 @@ import { ADMIN_SESSION_HEADER, FIXER_TOKEN_HEADER, RESIDENT_TOKEN_HEADER } from 
 //   await mutate("/api/me-too", { reportId });
 //
 // Reads are GETs with their args as search params; writes are POSTs with a JSON body. Every
-// `mutate` tells useLive (lib/data/useLive.ts) to refetch, as Convex queries rerun after a write.
+// `mutate` tells useLive (lib/data/useLive.ts) to refetch, as M0 queries reran after a write.
 
 /**
  * A failed call. `data` is the server's message when it's meant for the user (a UserError,
- * like ConvexError's `data`), so `err instanceof ApiError && typeof err.data === "string"`
- * replaces the ConvexError checks. It's undefined for a server fault or a network failure.
+ * like M0's error `data`), so `err instanceof ApiError && typeof err.data === "string"`
+ * replaces the M0 error checks. It's undefined for a server fault or a network failure.
  */
 export class ApiError extends Error {
   readonly status: number;

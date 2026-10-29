@@ -13,7 +13,7 @@ import { reportClusterRenderer } from "./clusterRenderer";
 import { markerCount, STATUS_COLOR } from "./counts";
 
 // Google Maps with clustered report markers (§1.1.2, §5.2.1). Centered on the active city
-// (convex/lib/city.ts), or on DEMO_POINT in demo mode (§6.1.1), which sits by the seeds.
+// (server/lib/city.ts), or on DEMO_POINT in demo mode (§6.1.1), which sits by the seeds.
 export const CITY_CENTER: LatLng = ACTIVE_CITY.center;
 const CITY_ZOOM = 13;
 // Past the clusterer's max zoom (16), so a focused report always shows on its own.

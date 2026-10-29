@@ -7,7 +7,7 @@ export type StoredFile = { size: number; contentType?: string | null } | null;
 
 // A post's media (§4.1.1), checked the same way for a new post (createReport) and a retake
 // (retakeReport, §4.2.1): a video is a clip plus 1–6 frames, a slideshow is 1–10 photos and no clip.
-// `stat` looks an upload up by key: server/storage.ts `statObject`, or Convex's `db.system.get`.
+// `stat` looks an upload up by key: server/storage.ts `statObject`, or M0's `db.system.get`.
 export async function checkPostMedia(
   stat: (key: string) => Promise<StoredFile>,
   {
