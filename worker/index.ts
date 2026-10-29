@@ -1,13 +1,18 @@
 import "./env"; // first: the imports below read env when they load
 import { boss, schedule, work, type JobHandler } from "@/server/jobs";
+import { SCREEN_REPORT, screenReport } from "@/server/jobs/screenReport";
+import { VERIFY_FIX, verifyFix } from "@/server/jobs/verifyFix";
 
 // The job worker (§1.1.1): `npm run worker` locally, the `worker` service in docker compose.
 // Screening, fix verification, transcription and purge run here, so the Gemini key never
 // reaches the browser.
 
-// Job name → handler. US36 adds screenReport and verifyFix, US39 transcribeVideo and purgeExpired.
+// Job name → handler. US39 adds transcribeVideo and purgeExpired.
 // (`never` lets each handler type its own payload.)
-const handlers: Record<string, JobHandler<never>> = {};
+const handlers: Record<string, JobHandler<never>> = {
+  [SCREEN_REPORT]: screenReport,
+  [VERIFY_FIX]: verifyFix,
+};
 
 // Job name → cron expression (UTC), for jobs that run on a schedule. Each needs a handler above.
 const schedules: Record<string, string> = {};
