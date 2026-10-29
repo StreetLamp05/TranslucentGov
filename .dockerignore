@@ -1,0 +1,13 @@
+# Keep secrets and local state out of the image build context (Dockerfile).
+.env
+.env.*
+*.env
+.git
+.next
+.convex
+.vercel
+.vitest
+.claude
+node_modules
+coverage
+scripts/fixtures
