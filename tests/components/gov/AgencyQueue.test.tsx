@@ -2,8 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import AgencyQueue from "../../../components/gov/AgencyQueue";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { QueueRow, TriageQueue } from "../../../convex/lib/triageGroups";
+import type { QueueRow, TriageQueue } from "../../../server/lib/triageGroups";
 
 afterEach(cleanup);
 
@@ -11,7 +10,7 @@ const DAY_MS = 86_400_000;
 
 function row(id: string, overrides: Partial<QueueRow> = {}): QueueRow {
   return {
-    _id: id as Id<"reports">,
+    _id: id,
     title: `Title ${id}`,
     street: "Baker St",
     category: "pothole",

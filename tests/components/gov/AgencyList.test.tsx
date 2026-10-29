@@ -2,7 +2,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, test } from "vitest";
 import AgencyList from "../../../components/gov/AgencyList";
-import type { TriageGroup } from "../../../convex/lib/triageGroups";
+import type { TriageGroup } from "../../../server/lib/triageGroups";
 
 afterEach(cleanup);
 

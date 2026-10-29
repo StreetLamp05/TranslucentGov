@@ -1,11 +1,10 @@
-import type { Id } from "../_generated/dataModel";
-import { CATEGORIES, type Category, type Owner } from "../../server/lib/routing";
+import { CATEGORIES, type Category, type Owner } from "./routing";
 
 // The triage dashboard's groups (§5.5). A report's group is its category's agency in the
 // active routing table, worked out at query time rather than read from the stored `agency`,
 // so a corrected table row moves every past report with it (§2.1.4). The table is passed in
-// so both city profiles can be tested. No server imports (only the `Id` type), so client
-// code can use it. The Postgres port (US44) swaps that type when `convex/` goes away.
+// so both city profiles can be tested. No server imports, so client
+// code can use it.
 
 export type RoutingTable = Record<Category, { owner: Owner; agency: string }>;
 
@@ -67,7 +66,7 @@ export function agencyForSlug(routing: RoutingTable, slug: string): AgencyGroup 
 // One row of a group's queue (§5.5.2). An allowlist like the map's: no transcript, segments,
 // description, poster, tokens or fixer identity (§3.1.3, §7.1.1).
 export type QueueRow = {
-  _id: Id<"reports">;
+  _id: string;
   title?: string;
   street?: string;
   category?: Category;

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { statusText } from "@/components/feed/CardOverlay";
 import { OWNER_CHIP } from "@/server/lib/routing";
-import type { QueueRow, TriageQueue } from "@/convex/lib/triageGroups";
+import type { QueueRow, TriageQueue } from "@/server/lib/triageGroups";
 
 // One agency's queue (§5.5.2): open reports ranked by neighbors (as the query returns them),
 // then recently fixed. Rows follow the fixer list (§5.3.1) and open the feed card (§5.2.1).
@@ -77,7 +77,7 @@ function Section({
 
 function Thumbnail({ url }: { url: string | null }) {
   if (!url) return <div className="size-16 shrink-0 rounded-lg bg-[#E2E6EA]" />;
-  // Convex storage URLs, so next/image's remote config doesn't apply.
+  // Presigned MinIO URLs, so next/image's remote config doesn't apply.
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt="" className="size-16 shrink-0 rounded-lg object-cover" />;
 }
