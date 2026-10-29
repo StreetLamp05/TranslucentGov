@@ -4,9 +4,10 @@ Source of truth for design decisions made during the pre-build design pass.
 Updated incrementally as decisions are locked in.
 ## Session state / handoff
 *Update after every locked decision so a fresh session can resume from this block alone.*
-- **Status:** ✅ **SPEC COMPLETE (Level 2, 2026-10-24).** Every item for tonight's build is decided, and the consistency sweep is resolved. No forward references are open. One known gap (2026-10-25): slurs aren't yet in US12's title rule (§4.2.1).
+- **✅ Triage dashboard design COMPLETE (2026-10-28, M1).** Must-haves only (user call): §2.1.4, §3.1.3, §5.5.1, §5.5.2 and §6.1.2 are locked, the sweep is clean, and the nice-to-haves are in §8. Cards pushed: F10 #13, US42 #14, US43 #15, US45 #17 (US44 #16 closed: the migration keeps API shapes, so no separate port). Building US42.
+- **Status (M0):** ✅ **SPEC COMPLETE (Level 2, 2026-10-24).** Every item for tonight's build is decided, and the consistency sweep is resolved. No forward references are open. One known gap (2026-10-25): slurs aren't yet in US12's title rule (§4.2.1).
 - **Last completed:** retcons for text descriptions, photo slideshow posts and the private Me page (§4.1.1, §5.4.1). Build decisions from US25 are recorded in §6.1.1, §6.2.1 and §8 (2026-10-25).
-- **City switch (2026-10-25, US25, user decision):** the Cal Hacks demo runs as **San Francisco**, live at the Palace of Fine Arts. This reverses §6.1.1's rejected "Bay Area as a second city". `ACTIVE_CITY` in `convex/lib/city.ts` sets the routing (§2.1.2), the Claude prompts, the map, `DEMO_POINT` and the seed presets. Oct 30 flips it back to Mableton. See §6.1.1 "City profile".
+- **City switch (2026-10-25, US25, user decision):** the Cal Hacks demo runs as **San Francisco**, live at the Palace of Fine Arts. This reverses §6.1.1's rejected "Bay Area as a second city". `ACTIVE_CITY` in `convex/lib/city.ts` sets the routing (§2.1.2), the Claude prompts, the map, `DEMO_POINT` and the seed presets. ~~Oct 30 flips it back to Mableton.~~ **Retcon (2026-10-28, user decision): Oct 30 stays San Francisco, with the existing SF data kept.** See §6.1.1 "City profile".
 - **M1 stack switch (2026-10-28, user decision):** this repo, TranslucentGov, is a fork of GovTok aimed at the **Georgia 311 Challenge Demo Day** (Fri 2026-10-30, 9am ET, Morehouse). Mableton Mayor Michael Owens and the judges attend, and top projects may go to the city for a pilot. AI moves to **Gemini** (§1.1.3, §1.1.4), and the backend moves from Convex to a **self-hosted docker-compose stack** of Postgres, MinIO, a pg-boss worker, Next.js and Caddy (§1.1.1). Other sections that say "Convex action / query / storage / scheduler" now mean worker job / route handler / MinIO / pg-boss; the behavior they describe is unchanged.
 - **Next up:** build M1. The cards are F9 + US31–US41 on Project #19 (draft: `.planning/M1-issues.json`). Cut line: if US40 (remove Convex) hasn't merged by Thu 2026-10-29 evening ET, demo on Convex + Gemini.
 - **Moved to server (2026-10-24):** work continues on `miraii` at `~/projects/GovTok` (moved from `~/GovTok` 2026-10-24; symlink left behind), using `claude --remote-control` inside tmux. The original conversation was on the laptop; this doc plus memory is the only carried-over context.
@@ -77,6 +78,11 @@ Updated incrementally as decisions are locked in.
 - **2026-10-24: private "Me" page.** The non-goal "public profiles" still holds. A private page tied to the device token shows your own posts and their results, plus fixes on things you reported or me-too'd. It's important for the demo, because it closes the loop. (§5.4.1)
 - **2026-10-24: tax framing.** Mableton residents are frustrated right now because the city just added a property tax. GovTok lets them **see their tax dollars at work**: every verified fix is visible proof of where the money goes. Use this as a pitch angle, especially on Oct 30. *(Get the date and millage figure before it goes in the pitch.)* (§6.2.1)
 - **2026-10-24: clips keep audio**, which gets transcribed (§1.1.3, §1.1.4). Proof-of-fix commentary is still out of scope (§4.3.1).
+- **2026-10-28: government triage dashboard (M1, Oct 30).** Each government group gets a page with the reports routed to it, so every group can own its issues and leadership can see who has what. Decided at Level 0 (user):
+  - **Groups = the routing table's `agency` values** (§2.1.2), e.g. Mableton Sanitation, Code Enforcement, Cobb DOT, Georgia Power. No new org chart. Agencies that won't log in (Cobb, utilities) still get a page, and that is part of the accountability pitch.
+  - **Ownership is a filtered view, not a claim.** No "acknowledged / in progress" status. A group owns its issues by seeing them and closing them through the existing verified fix (§4.3.1). §2.1.3's rejection stands.
+  - **Audience:** city staff and the Mayor at M1 demo day.
+  - This reverses §5.2.1's "no separate dashboard" (retconned there). (§5.5)
 
 ---
 
@@ -221,6 +227,18 @@ Updated incrementally as decisions are locked in.
 - Rejected:
   - "In progress / acknowledged": no work-order integration, so a fixer would tap it by hand. It's an extra flow and easy to game.
   - "Reopened": real, but not the v1 story. 📌 Deferred (§8).
+- ✓ Recorded (2026-10-28) — the triage dashboard (§5.5) doesn't add a claim status. Ownership is a filtered view, and the verified fix is the only state change (Scope addendum 2026-10-28).
+
+**2.1.4 Group key — derived from the category through the active routing table (added 2026-10-28, M1)**
+- A report's triage group (§5.5) is `ACTIVE_CITY.routing[category].agency` (§2.1.2), computed when the dashboard query runs. No new field and no backfill.
+- Categories that share an agency share a group (e.g. Mableton's `pothole` + `signal_sign` → Cobb DOT).
+- `other` reports form their own **"Routing unclear"** group. It's shown, not hidden, because it's an honest gap to show the Mayor.
+- Only `open` / `fixed` reports are grouped (§2.1.3). `pending` / `held` never appear.
+- Implementation note: the public card shows the stored `agency` (§2.1.1), so after a table correction the card and the dashboard can disagree. Fix it either by deriving the card's agency the same way or by rescreening. That's an implementation-time judgment call.
+- Rationale: the routing table has unverified rows (§8 "Before ship"). Deriving the group means a corrected row moves every past report to the right group automatically, and the table stays the single source of truth.
+- Rejected:
+  - The stored `agency` string: reports keep a stale group after a table correction.
+  - A stable `agencyId` on reports and fixers: survives renames, but needs a schema field and a backfill, which is too much for M1.
 
 ---
 
@@ -250,6 +268,16 @@ Updated incrementally as decisions are locked in.
 - Known weaknesses, accepted for the hackathon (2026-10-25, US21): there's no limit on passcode guesses, and a passcode is revoked only by deleting its fixer row in the Convex dashboard (re-seeding a fixer under a new passcode leaves the old one working).
 - 📌 **Forward reference (§4.3.2)**: whether fixers are limited to reports their org owns (city staff can't close Cobb reports).
 - 📌 Deferred (§8): city single sign-on for fixers in the pilot, and a limit on passcode guesses.
+
+**3.1.3 Dashboard access — public read-only page, unlinked (added 2026-10-28, M1)**
+- The triage dashboard (§5.5) needs no login and has no tab-bar entry, like `/fix` (§5.3.1). Anyone with the URL can open it.
+- It shows only fields public cards already show (§7.1.1), built on the same public-report shape (`convex/lib/publicReport.ts`). No poster, no tokens, no `pending` / `held` reports, and no transcript or captions for `audioMuted` reports.
+- It has no write actions. Closing a report still goes through `/fix` and its passcode (§3.1.2), or "Is it fixed?" (§4.3.2).
+- Rationale: ownership is view-only (Scope addendum 2026-10-28), so a login would protect nothing. A public per-department queue is also on-pitch: residents can see what each agency has open.
+- Rejected:
+  - Fixer passcode + `org` → group: a login that guards nothing. Org strings must match agency strings exactly, and Cobb and the utilities have no fixer rows.
+  - A shared staff passcode: only worth it if staff saw private data (held posts), which is the deferred moderation queue (§8).
+- Known trade-off: it works as a public per-department scoreboard in front of the Mayor. The user accepted this; it's the accountability pitch.
 
 ---
 
@@ -401,11 +429,12 @@ Updated incrementally as decisions are locked in.
 
 ### 5.2 Map
 
-**5.2.1 Map — clustered counts, status colors, linked both ways with the feed (directional)**
+**5.2.1 Map — clustered counts, status colors, linked both ways with the feed (directional) (retconned from "no separate dashboard" to a per-agency triage dashboard)**
 - Google Maps with clustered markers (§1.1.2), showing `open` and `fixed` reports. A marker's number is `1 + meTooCount`, and a cluster sums its markers.
 - Markers are colored by status (open vs fixed). One **Open / Fixed** toggle.
 - Tapping a marker opens the feed at that card (`/?report=<id>`). Each card has an "on map" pin that goes back (§5.1.1).
-- City leadership uses the same map. There's no separate dashboard.
+- ~~City leadership uses the same map. There's no separate dashboard.~~
+- **Retcon (2026-10-28):** government groups get a triage dashboard (§5.5), one queue per routing-table agency. The public map is unchanged, and leadership can still use it. Reason: the user wants each group to take ownership of its own issues, which the shared map doesn't support.
 
 ### 5.3 Fixer screen
 
@@ -425,6 +454,30 @@ Updated incrementally as decisions are locked in.
 - Rationale: the user wants results visible, which matters for the demo. Keeping it private avoids exposing which blocks someone films, usually their own (§7.1.1).
 - Rejected: public profiles with display names. They leak which blocks a resident films, and they're a Scope non-goal.
 
+### 5.5 Triage dashboard (added 2026-10-28, M1)
+
+**5.5.1 Shape — overview of all groups + one page per group (directional)**
+- `/gov` (public, unlinked, §3.1.3) lists **every** agency in the active routing table (§2.1.2), including those with 0 reports. Groups come from §2.1.4.
+  - Each row: agency name, owner chip (§2.1.2 owner labels), open count, fixed count.
+  - Sorted by open count, descending. **"Routing unclear"** always sits last, whatever its count.
+- Tapping a group opens `/gov/<agency-slug>`, that group's queue (§5.5.2). The slug comes from the agency string, since there's no stored id (§2.1.4).
+- Counts are `open` / `fixed` reports only (§2.1.3). They update live, and Convex subscriptions are free.
+- Rationale: the overview is the Mayor's "who has what", and the group page is a department's "what's mine". Listing empty agencies is honest and keeps the list stable during the demo.
+- Rejected:
+  - One page with group filter chips: no comparison across groups at a glance.
+  - Per-group pages only: nobody sees the whole picture.
+
+**5.5.2 A group's queue — community-ranked open list + recently fixed (directional)**
+- `/gov/<slug>` shows the group's reports (§2.1.4) in two sections:
+  - **Open:** sorted by `1 + meTooCount`, descending, with the oldest `createdAt` first on a tie.
+  - **Recently fixed:** sorted by `fixedAt`, newest first. All fixed reports at M1 scale; a cap is an implementation-time call.
+- Row content follows the fixer list (§5.3.1): thumbnail, title, street, days open ("Fixed in N days" for fixed rows, §2.1.3) and me-too count. Public fields only (§3.1.3).
+- Tapping a row opens the feed card at `/?report=<id>` (the §5.2.1 deep link), which has the video, the reveal and "on map". No new detail screen.
+- Rationale: "your residents ranked this list" uses the signal no 311 form has, and it's the line for the Mayor. Days open still shows on every row. The fixed section shows ownership as results, not as claims (Scope addendum 2026-10-28).
+- Rejected:
+  - Oldest first: a single-reporter item outranks a pothole 40 neighbors flagged.
+  - Me-toos × days: an order nobody can explain on stage.
+
 ---
 
 ## 6. Demo & impact
@@ -438,9 +491,10 @@ Updated incrementally as decisions are locked in.
   - Everything runs in San Francisco, where the team and the samples are, and the demo is live at the Palace of Fine Arts.
   - `ACTIVE_CITY` (`convex/lib/city.ts`) is `SAN_FRANCISCO`. It sets the routing table (§2.1.2), "residents of San Francisco, California" in both Claude prompts, the map's default center (Civic Center) and title, and the seed presets (SF street corners).
   - `DEMO_POINT` is on Baker St beside the Palace lagoon, with `?demo=sf`. The pothole preset is 28 m from it and the before/after spot 39 m.
-  - Oct 30 sets `ACTIVE_CITY = MABLETON`, which restores the Mableton table, prompts and center, Clay Rd SW as `DEMO_POINT`, and `?demo=mableton`.
+  - ~~Oct 30 sets `ACTIVE_CITY = MABLETON`, which restores the Mableton table, prompts and center, Clay Rd SW as `DEMO_POINT`, and `?demo=mableton`.~~
+  - **Retcon (2026-10-28, user decision):** Oct 30 also runs as `SAN_FRANCISCO`, with the SF reports already in the database left as they are. No city flip and no data wipe. Reason: the user wants to demo the SF data. This also avoids leftover SF reports being regrouped under Mableton agencies on `/gov`, since reports have no city field and groups come from the active table (§2.1.4). The Mableton profile stays in code as a one-line switch for the pilot.
   - Stage consequence: nearly every SF category is city-owned, so neighbors can't confirm fixes (§4.3.2, unchanged), and the live before/after is filmed by a fixer through `/fix` ("Fixed by SF Public Works").
-  - Pitch: GovTok is built for Mableton (Scope), and the Cal Hacks demo shows it running for San Francisco.
+  - Pitch: GovTok is built for Mableton (Scope), and both demos show it running for San Francisco. For Oct 30: "switching it to Mableton is one config line: the routing table, prompts and map."
 - Stage flow:
   1. Walk up to a seeded pothole: "Is it one of these?" → Me too.
   2. Post a new clip live.
@@ -472,6 +526,17 @@ Updated incrementally as decisions are locked in.
   - The Bay Area as a second city: a second routing table, and it weakens the "named community" pitch. *(Reversed for Cal Hacks on 2026-10-25: see "City profile" above.)*
 - 📌 Deferred (§8): replace the samples with the Mableton teammate's real footage and turn demo mode off for Oct 30.
 
+**6.1.2 M1 stage beat — one ~8s dashboard beat after the live post (added 2026-10-28)**
+- On Oct 30 (`ACTIVE_CITY = SAN_FRANCISCO`, retcon 2026-10-28, see §6.1.1), right after the live post clears screening (§6.1.1 step 2), switch to `/gov`, tap the agency the post was routed to, and show the new report in that group's queue (§5.5.2).
+- Line: "Gemini tagged it, the table routed it, SF Public Works owns it." (Say Claude if the Gemini switch, §1.1.3, hasn't shipped.)
+- The live post must be a **city-owned category** in the SF table (§2.1.2), so the group on screen is a city department, not a utility. Best is `pothole` or `code_violation`, which go to SF Public Works. Avoid `trash_missed` (Recology, a utility) and `streetlight` (PG&E / SFPUC).
+  - **Retcon (2026-10-28):** this originally named the Mableton categories (`trash_missed` or `code_violation`, "Code Enforcement owns it") for a Mableton profile. Oct 30 now stays San Francisco (§6.1.1).
+- Upgrade if the stage has two displays: keep `/gov/<slug>` up on a laptop for the whole demo so every beat updates it live. Same build, no extra seconds.
+- Rationale: it shows the exact feature (tag → route → ownership) inside the 45s budget (Working agreement) and needs only one projector.
+- Rejected:
+  - A second screen as the plan: depends on the venue and splits the audience's attention.
+  - A slide only: least convincing.
+
 ### 6.2 Impact
 
 **6.2.1 Impact metric — a trust survey before and after, plus counters from existing data**
@@ -484,6 +549,7 @@ Updated incrementally as decisions are locked in.
     - *(Clarified 2026-10-25, US19:)* once per report per browser session (sessionStorage), counted from the feed only. Me-page reveals (§5.4.1) count only if US24 opts in. *(2026-10-25, US24: not counted.)*
   - **Me-toos as a share of (reports + me-toos):** a proxy for duplicate calls avoided. *(Denominator clarified 2026-10-25, US26.)*
 - **For Cal Hacks:** there's no real data yet, so the pitch shows the plan plus the live counters from the demo. One stats query; no dashboard screen.
+  - (2026-10-28) The M1 triage dashboard (§5.5) shows only open and fixed counts per group. These impact metrics stay off it; per-group days-to-fix is deferred (§8).
   - (2026-10-25, US25) The counters include the seeded samples. Their dates are backdated by hand, so the slide labels them "from the demo (sample data)", the same way the Sample badge labels the cards. Oct 30 runs `excludeSamples` (US26).
 - Rationale: the premise is that visible fixes build trust (Scope), so the headline measures trust, and the counters show the mechanism (fixes happen, and people see them). It answers the Anthropic track's impact plan and Microsoft's "measurable usefulness."
 - Rejected: an in-app trust question shown on first visit and after a week. More responses, but a new screen and timing logic. 📌 Deferred (§8).
@@ -524,7 +590,7 @@ Updated incrementally as decisions are locked in.
 - Onboarding real fixers (city staff, contractors) with the city
 - Mableton test-week logistics
 - In-app trust question shown on first visit and after a week (§6.2.1)
-- Replace the California samples with real Mableton footage, set `ACTIVE_CITY = MABLETON`, and turn demo mode off (§6.1.1)
+- Replace the California samples with real Mableton footage, set `ACTIVE_CITY = MABLETON`, and turn demo mode off (§6.1.1). *(2026-10-28: moved past Oct 30; the Oct 30 demo stays San Francisco with the SF data.)*
 - Verify the San Francisco routing rows if the SF profile is kept after Cal Hacks, especially streetlights (SFPUC vs PG&E) and code enforcement (Public Works vs Building Inspection) (§2.1.2)
 - Native mobile app with native capture (needs an Apple developer account) (§4.1.1)
 - City single sign-on for fixers (§3.1.2)
@@ -537,6 +603,7 @@ Updated incrementally as decisions are locked in.
 - Reports stuck in `pending` (2026-10-25, US13; manual for M0 via `rescreen`, §4.2.1): if Groq or Claude hangs until the action times out, no retry is scheduled, and the purge only removes `held` reports. Options: request timeouts in `transcribe` / `callClaudeJSON`, or a cron that holds stale `pending` reports as "screening failed"
 - iPhone `video/quicktime` clips (native-camera fallback, demo upload) always end "screening failed", because `transcribe` (US11) accepts only mp4/webm. Filed on US11. (2026-10-25, US14) Every in-app path now converts a `.mov` to MP4/WebM in the browser first (posts, fixes, `/admin/video-intake`, and `/admin/seed` via `normalizeClip`, §4.1.1)
 - Retake deletes files another report might share (2026-10-25, US14, accepted for M0): `retakeReport` deletes the old clip and frames right away, and `createReport` doesn't check who uploaded a file or whether another report uses it. Someone holding another report's storage ID could post it, get a `retake`, and retake to delete it (purge already allows this after 7 days). Low risk, since no query returns another report's storage IDs: public reports carry file URLs only (`convex/lib/publicReport.ts`). Options then: check uploads belong to the poster, or skip files another report references (needs an index)
+- Triage dashboard nice-to-haves (2026-10-28, cut from M1, §5.5): a group sends back a report Claude categorized wrong (re-tag → re-route); per-group stats beyond counts (median days to verified fix, share fixed in 30 days, from §6.2.1); row actions beyond a single tap (watch inline, open on map, record fix)
 - Remove the held-post debug line (raw verdict, reason and `screeningError` on the poster's screens, §4.2.1) after Mableton demo day (Oct 30). It stays on for the Cal Hacks and Oct 30 demos
 
 ---
@@ -592,6 +659,22 @@ Updated incrementally as decisions are locked in.
 **7.1 Privacy**
 - ~~7.1.1 What's public: location precision, retention~~ ✓ *(exact location, no poster identity, held purged after 7d)*
 
+### Level 2 (M1: triage dashboard, added 2026-10-28; must-haves only, user call)
+**2.1 Reports**
+- ~~2.1.4 Group key: how a report maps to a group, including unrouted `other` reports *(absorbed 2.1.5)*~~ ✓ *(derived from category via the active table; "Routing unclear" is its own group)*
+
+**3.1 Identity & roles**
+- ~~3.1.3 Dashboard access: who can open it, how their group is chosen, and what they see beyond the public card *(absorbed 7.1.2)*~~ ✓ *(public read-only, unlinked, public fields only)*
+
+**5.5 Triage dashboard**
+- ~~5.5.1 Shape: Mayor overview + per-group pages or per-group only, the route, and the open/fixed counts per group *(absorbed the counts from 5.5.5)*~~ ✓ *(`/gov` overview of all agencies + `/gov/<slug>` per group)*
+- ~~5.5.2 A group's queue: row contents, default sort, and where tapping a row goes *(absorbed 5.5.3)*~~ ✓ *(open by me-toos, then recently fixed; tap → feed card)*
+
+**6.1 Demo**
+- ~~6.1.2 M1 stage beat: where the dashboard appears on Oct 30~~ ✓ *(one ~8s beat after the live post; city-owned category)*
+
+*Cut to §8 (nice-to-have):* ~~5.5.3 Row actions~~ (folded into a single tap target), ~~5.5.4 Mis-tagged reports~~, ~~5.5.5 Per-group stats~~ beyond counts.
+
 ---
 
 ## Next steps (build)
@@ -603,4 +686,6 @@ Updated incrementally as decisions are locked in.
 6. **Demo:** seed action + `?demo=mableton` (§6.1.1). Film the before/after pairs.
 7. **Before ship:** verify the routing table (§8), and source the Mamdani claim and the tax figures before they go in the pitch (Scope).
 
-**Partner handoff (wireframes in Claude Cowork):** read Scope, Scope addendum, §4.1 (capture: video / slideshow / description / duplicate check), §4.2.1 (Checking… and verdict screens, incl. Call 911), §5.1–§5.4, §6.1.1 (Sample badge, demo banner). §5 entries are directional: content and behavior are fixed, layout is the partner's call.
+**Partner handoff (wireframes in Claude Cowork):** read Scope, Scope addendum, §4.1 (capture: video / slideshow / description / duplicate check), §4.2.1 (Checking… and verdict screens, incl. Call 911), §5.1–§5.5, §6.1.1 (Sample badge, demo banner). §5 entries are directional: content and behavior are fixed, layout is the partner's call.
+
+**Triage dashboard (M1, design locked 2026-10-28):** §2.1.4 (group key), §3.1.3 (access), §5.5.1–§5.5.2 (surfaces), §6.1.2 (stage beat). Next: generate M1 cards per CLAUDE.md into `.planning/M1-issues.json` for review. Then build: one Convex query grouping public reports by `routing[category].agency`, then `/gov` and `/gov/<slug>`.
