@@ -275,8 +275,8 @@ describe("screenReport retry", () => {
     expect((await read()).status).toBe("open");
   });
 
-  test("a Groq 429 waits for the retry-after in its error", async () => {
-    transcribe.mockRejectedValueOnce(new Error("Groq transcription failed (429). Retry after 7 seconds. slow down"));
+  test("a transcription 429 waits for Gemini's retry delay", async () => {
+    transcribe.mockRejectedValueOnce(new GeminiError("rate_limited", "Gemini rate limited", 7000));
     const { screen, scheduled } = await setup();
     await screen();
     expect((await scheduled())[0].scheduledTime).toBe(NOW + 7000);
@@ -317,7 +317,7 @@ describe("screenReport retry", () => {
   });
 
   test("a transcription failure on both tries holds the report without calling Claude", async () => {
-    transcribe.mockRejectedValue(new Error("Groq transcription failed (500)."));
+    transcribe.mockRejectedValue(new GeminiError("api", "Gemini request failed (500)"));
     const { screen, read, runScheduled } = await setup();
     await screen();
     await runScheduled();
@@ -327,7 +327,7 @@ describe("screenReport retry", () => {
     expect(await read()).toMatchObject({
       status: "held",
       reason: SCREENING_FAILED_REASON,
-      screeningError: "Groq transcription failed (500).",
+      screeningError: "Gemini request failed (500)",
     });
   });
 

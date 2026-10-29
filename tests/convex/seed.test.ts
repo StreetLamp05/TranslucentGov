@@ -149,7 +149,7 @@ describe("seedSamples", () => {
     expect(await t.run((ctx) => ctx.db.query("reports").collect())).toHaveLength(0);
   });
 
-  test("refuses a clip Groq can't transcribe (an iPhone .MOV), which would be held for good", async () => {
+  test("refuses a clip we can't transcribe (an iPhone .MOV), which would be held for good", async () => {
     const t = convexTest(schema, modules);
     const mov = await t.run((ctx) => ctx.storage.store(new Blob(["mov"], { type: "video/quicktime" })));
     const sample = await videoSample(t, { clipStorageId: mov });

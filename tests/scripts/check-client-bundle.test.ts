@@ -28,7 +28,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "bundle-check-"));
   mkdirSync(join(root, "scripts"));
   copyFileSync(SCRIPT, join(root, "scripts/check-client-bundle.sh"));
-  plant(".env.local", 'GROQ_API_KEY="gsk_FAKE123456"\nADMIN_PASSCODE=hunter22\n');
+  plant(".env.local", 'GOOGLE_GEOCODING_KEY="AIzaFAKE123456"\nADMIN_PASSCODE=hunter22\n');
   plant(".next/static/chunks/app.js", "var a=1;");
 });
 
@@ -38,18 +38,18 @@ test("passes a clean build", () => {
   const { exit, out } = check();
 
   expect(exit).toBe(0);
-  expect(out).toMatch(/^ok {5}GROQ_API_KEY$/m);
+  expect(out).toMatch(/^ok {5}GOOGLE_GEOCODING_KEY$/m);
   expect(out).toMatch(/^ok {5}GEMINI_API_KEY \(name only/m);
 });
 
 test("fails on a key value in the client chunks", () => {
-  plant(".next/static/chunks/leak.js", 'x="gsk_FAKE123456"');
+  plant(".next/static/chunks/leak.js", 'x="AIzaFAKE123456"');
 
   const { exit, out } = check();
 
   expect(exit).toBe(1);
-  expect(out).toContain("LEAK   GROQ_API_KEY (value found");
-  expect(out).not.toContain("gsk_FAKE123456");
+  expect(out).toContain("LEAK   GOOGLE_GEOCODING_KEY (value found");
+  expect(out).not.toContain("AIzaFAKE123456");
 });
 
 test("fails on a key value in prerendered HTML", () => {

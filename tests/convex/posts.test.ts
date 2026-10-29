@@ -145,7 +145,7 @@ describe("createReport", () => {
     await expect(post(MAX_CLIP_BYTES + 1)).rejects.toThrow(/over 25 MB/);
   });
 
-  test("the clip limit is 25,000,000 bytes, under Groq's 25 MB whichever unit it means", () => {
+  test("the clip limit is 25,000,000 bytes, not 25 MiB", () => {
     expect(MAX_CLIP_BYTES).toBe(25_000_000);
   });
 
@@ -209,7 +209,7 @@ describe("createReport", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     // No keys, so screening fails before any network call (tests/convex/screening.test.ts
     // covers the real pipeline with mocks).
-    vi.stubEnv("GROQ_API_KEY", "");
+    vi.stubEnv("GEMINI_API_KEY", "");
     vi.stubEnv("GOOGLE_GEOCODING_KEY", "");
     const { t, jpegs, clip, scheduled } = setup();
     const reportId = await t.mutation(api.posts.createReport, {
@@ -266,13 +266,13 @@ describe("myReport", () => {
       ctx.db.patch(reportId, {
         status: "held",
         reason: "screening failed",
-        screeningError: "Groq transcription failed (500).",
+        screeningError: "Gemini request failed (500)",
         screeningRetries: 1,
       }),
     );
     expect(await t.query(api.posts.myReport, { token: "resident-a", reportId })).toMatchObject({
       reason: "screening failed",
-      screeningError: "Groq transcription failed (500).",
+      screeningError: "Gemini request failed (500)",
       screeningRetries: 1,
     });
   });

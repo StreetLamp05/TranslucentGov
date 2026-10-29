@@ -197,7 +197,7 @@ async function check(ctx: MutationCtx, sample: Sample, now: number, label: strin
     if (frames.length < 1 || frames.length > MAX_VIDEO_FRAMES) fail(`a video needs 1 to ${MAX_VIDEO_FRAMES} frames.`);
     const clip = await stored(ctx, sample.clipStorageId, "video", fail);
     if (clip.size > MAX_CLIP_BYTES) fail(CLIP_TOO_BIG);
-    // Groq only takes these (lib/transcribe.ts), so anything else (an iPhone .MOV) would be
+    // Transcription only takes these (lib/transcribe.ts), so anything else (an iPhone .MOV) would be
     // held as "screening failed" with no way to rescreen it.
     const type = (clip.contentType ?? "").split(";")[0].trim().toLowerCase();
     if (!TRANSCRIBABLE.includes(type)) fail(NOT_TRANSCRIBABLE);

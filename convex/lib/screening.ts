@@ -1,4 +1,4 @@
-// The `reason` on a report that's held because Groq or Gemini failed twice (§4.2.1).
+// The `reason` on a report that's held because transcription or screening failed twice (§4.2.1).
 // US13 writes it; the poster's Try again button (US14, US24) matches on it.
 export const SCREENING_FAILED_REASON = "screening failed";
 
@@ -9,8 +9,8 @@ export const MAX_SCREENING_RETRIES = 2;
 export const MAX_SCREENING_ERROR_LENGTH = 500;
 
 // The error, trimmed to what a poster may see: its first line, cut before any response body
-// (Groq and the Gemini SDK append the vendor's JSON, which can carry org IDs and rate-limit
-// usage). Enough to tell Groq from Gemini and a 429 from a 500.
+// (vendor errors append the response JSON, which can carry org IDs and rate-limit usage).
+// Enough to tell one vendor from another and a 429 from a 500.
 export function screeningErrorSummary(message: string): string {
   let summary = message.split("\n")[0];
   const body = summary.search(/[{[]/);

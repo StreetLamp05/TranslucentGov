@@ -37,7 +37,7 @@ export const fixAttemptStatusValidator = v.union(
   v.literal("superseded"),
 );
 
-// Whisper segment timestamps, in seconds (§1.1.4).
+// Transcript segment timestamps, in seconds (§1.1.4).
 export const segmentValidator = v.object({ start: v.number(), end: v.number(), text: v.string() });
 
 export default defineSchema({

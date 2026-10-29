@@ -277,7 +277,7 @@ describe("CheckingScreen", () => {
 
   describe("held: screening failed", () => {
     const failed = (fields: Partial<OwnerReport> = {}) =>
-      fixture({ reason: SCREENING_FAILED_REASON, screeningError: "Groq transcription failed (500).", ...fields });
+      fixture({ reason: SCREENING_FAILED_REASON, screeningError: "Gemini request failed (500)", ...fields });
 
     test("says we couldn't check it, with Try again, the error in the debug line, and no Retake or Post another", () => {
       show(failed());
@@ -285,7 +285,7 @@ describe("CheckingScreen", () => {
       expect(button("Try again")).toBeTruthy();
       expect(button("Retake")).toBeNull();
       expect(button("Post another")).toBeNull();
-      expect(debugLine()).toBe("held: no verdict · Groq transcription failed (500).");
+      expect(debugLine()).toBe("held: no verdict · Gemini request failed (500)");
     });
 
     test(`after ${MAX_SCREENING_RETRIES} Try agains, it says so and offers Post another instead`, () => {
@@ -295,7 +295,7 @@ describe("CheckingScreen", () => {
       expect(button("Try again")).toBeNull();
       fireEvent.click(button("Post another")!);
       expect(onPostAnother).toHaveBeenCalled();
-      expect(debugLine()).toMatch(/Groq transcription failed/);
+      expect(debugLine()).toMatch(/Gemini request failed/);
     });
 
     test("one Try again left still shows the button", () => {

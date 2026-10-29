@@ -1,8 +1,8 @@
 import { v } from "convex/values";
 import { action, internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { transcribe } from "./lib/transcribe";
 import { MAX_CLIP_BYTES } from "./lib/clipLimit";
+import type { Transcription } from "./lib/transcribe";
 import { validateVideoMetadata } from "./lib/videoIntakeValidation";
 
 const INTAKE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -130,16 +130,18 @@ export const purgeExpired = internalMutation({
 
 export const transcribeVideo = action({
   args: { id: v.id("videoIntake"), sessionToken: v.string() },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Transcription> => {
     await ctx.runQuery(internal.videoIntakeDb.requireAdminSession, { token: args.sessionToken });
     const entry = await ctx.runMutation(internal.videoIntake.claimForTranscription, { id: args.id });
     if (!entry) throw new Error("This video is missing or is already being transcribed.");
 
     try {
-      const blob = await ctx.storage.get(entry.storageId);
-      if (!blob) throw new Error("The uploaded video could not be found in Convex storage.");
-
-      const result = await transcribe(blob, entry.contentType, entry.fileName);
+      // On Node, for the Gemini Files API (convex/videoIntakeTranscribe.ts).
+      const result: Transcription = await ctx.runAction(internal.videoIntakeTranscribe.transcribeStored, {
+        storageId: entry.storageId,
+        contentType: entry.contentType,
+        fileName: entry.fileName,
+      });
       await ctx.runMutation(internal.videoIntake.saveTranscript, {
         id: args.id,
         transcript: result.text,
