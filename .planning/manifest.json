@@ -659,7 +659,10 @@
         "US34",
         "US43"
       ],
-      "closed": "not planned (2026-10-28)"
+      "reopened": "2026-10-28",
+      "blocking": [
+        "US40"
+      ]
     },
     "US45": {
       "specSection": "§6.1.2",

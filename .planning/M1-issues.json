@@ -210,7 +210,7 @@
     {
       "tempId": "F10",
       "title": "F10: Triage dashboard",
-      "body": "Each government group sees the public reports routed to it, so every group can own its issues and leadership can see who has what. A filtered view with no claim status: a group owns its issues by closing them through the verified fix (Scope addendum 2026-10-28).\n\nBuilt as ordinary Convex queries plus pages. The M1 migration keeps the same API calls and return shapes and only swaps the database behind them (user, 2026-10-28), so the dashboard needs no separate port.\n\nChildren: US42, US43, US45. (US44, a dedicated Postgres port, was closed as not needed.)",
+      "body": "Each government group sees the public reports routed to it, so every group can own its issues and leadership can see who has what. A filtered view with no claim status: a group owns its issues by closing them through the verified fix (Scope addendum 2026-10-28).\n\nBuilt as Convex queries plus pages first (US42, US43). The API shapes stay the same, so US44 adds the Postgres route handlers and US40 waits for it. Oct 30 runs on the Postgres stack (user, 2026-10-28).\n\nChildren: US42, US43, US44, US45.",
       "label": "feature",
       "area": "web",
       "specSection": "§2.1.4, §3.1.3, §5.5.1, §5.5.2, §6.1.2",
@@ -244,7 +244,7 @@
         {
           "tempId": "US44",
           "title": "US44: Serve the triage dashboard from Postgres",
-          "body": "As city staff, `/gov` and each agency's queue keep working, and keep updating without a refresh, on the self-hosted compose stack.\n\nPorts: `convex/triage.ts`, `convex/triageGroup.ts`, following US37's pattern.\n\n- `server/triage.ts` and the route handlers `app/api/triage/overview` and `app/api/triage/[slug]` return the same shapes as the Convex queries. Both call the unchanged `overview` and `groupQueue` from `lib/triage/groups.ts` with the routing table from `server/lib/routing` (moved by US34).\n- Thumbnail URLs are presigned MinIO GETs (as in US37).\n- `components/gov/useTriage.ts` switches from `useQuery` to `useLive` (US34), polling about every 10 s. The pages don't change.\n- Must merge before US40 deletes `convex/`. Proposed: US40 blocked_by this card.\n\nFiles this card owns: `server/triage.ts`, `app/api/triage/*`, `components/gov/useTriage.ts`, and their PGlite tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] The `overview` and `queue` route handlers return the same shapes as the Convex queries, and public reads go through `server/lib/publicReport.ts` or an equivalent allowlist\n- [ ] The US42 and US43 Convex tests are ported to PGlite and pass, including the `pending` / `held` exclusion and the no-private-fields check\n- [ ] `lib/triage/groups.ts` is unchanged by this card\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human, on the compose stack):\n- [ ] With `/gov/<slug>` open in one tab, approve a report in that agency's category in another. It appears in the queue within about 10 s, and the `/gov` count goes up.\n\nPriority: demo-critical for the self-host track only (F9 cut line).",
+          "body": "As city staff, `/gov` and each agency's queue keep working, and keep updating without a refresh, on the self-hosted Postgres stack that Oct 30 runs on.\n\nPorts: `convex/triage.ts` (US42) and `convex/triageGroup.ts` (US43), following US37's pattern. The API shapes stay the same, so the pages don't change; this card adds the Postgres side.\n\n- `server/triage.ts` plus the route handlers `app/api/triage/overview` and `app/api/triage/[slug]` return the same shapes as the Convex queries. They call the unchanged helpers in `triageGroups.ts` (moved to `server/lib/` with the other pure modules, per US34) with the active routing table.\n- They read only `open` / `fixed` reports, with the same allowlist projection: no transcript, segments, description, poster, tokens or fixer identity (§3.1.3, §7.1.1).\n- Thumbnail URLs are presigned MinIO GETs (as in US37).\n- The `/gov` pages switch from `useQuery` to `useLive` (US34), polling about every 10 s like the feed and map (§1.1.1).\n- Must merge before US40 deletes `convex/`. US40 is blocked by this card.\n\nFiles this card owns: `server/triage.ts`, `app/api/triage/*`, the data hooks in `app/gov/*` and `components/gov/*`, and their PGlite tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] The `overview` and `[slug]` route handlers return the same shapes as `api.triage.overview` and `api.triageGroup.queue`\n- [ ] The US42 and US43 Convex tests are ported to PGlite and pass, including the `pending` / `held` exclusion, the derived group (a stale stored `agency` is ignored), and the no-private-fields check\n- [ ] The grouping helpers' logic is unchanged (they move with US34, but nothing is rewritten)\n- [ ] `/gov` and `/gov/<slug>` poll through `useLive` and pick up a newly approved report without a refresh\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human, on the compose stack):\n- [ ] With `/gov/<slug>` open in one tab, approve a report in that agency's category in another. It appears in the queue within about 10 s, and the `/gov` count goes up\n\nReopened 2026-10-28: Oct 30 runs on the Postgres stack (user), and US40 deletes `convex/`, so the dashboard's two queries need a port. It was closed earlier on the assumption that the migration covered it.\n\nPriority: demo-critical.",
           "area": "web",
           "size": "S",
           "specSection": "§5.5.1, §5.5.2, §1.1.1",
@@ -252,10 +252,10 @@
             "US34",
             "US43"
           ],
-          "priority": "demo-critical (self-host track)",
+          "priority": "demo-critical",
           "agentDoable": true,
           "issueNumber": 16,
-          "closed": "2026-10-28, not planned: the migration keeps the same API calls and shapes (user), so no separate port is needed."
+          "reopened": "2026-10-28: Oct 30 runs on Postgres; US40 blocked_by US44"
         },
         {
           "tempId": "US45",

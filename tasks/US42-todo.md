@@ -32,7 +32,7 @@ Review fixes (no decision needed; re-verified: 15/15 card tests, tsc, eslint, bu
 
 Decide (left for the user):
 - The query returns the owner *value* (`utility`) and the client maps it to the label through `OWNER_CHIP`; the card text says "owner label". Recommendation: keep it, since chip colours need the value and the labels are `ACTIVE_CITY.ownerLabels`.
-- M1 planning gap: US34/US37/US40 don't list `convex/triage.ts` or `convex/lib/triageGroups.ts`, so US40 (delete `convex/`) would break `/gov`.
+- ~~M1 planning gap: nothing ports the dashboard before US40 deletes `convex/`.~~ Resolved 2026-10-28: #16 US44 reopened as the port card, and US40 is now blocked by it.
 - ~~Oct 30 data: switching to Mableton regroups leftover SF reports.~~ Resolved (user, 2026-10-28): Oct 30 stays San Francisco with the SF data kept (§6.1.1 retcon), so nothing regroups.
 - Spec tidy-ups: the Session state "Next up" line is stale; §5.5.1 says "Convex subscriptions" (polling on M1); §3.1.3 says `publicReport.ts` shape vs US43's narrower allowlist.
 - Before committing: run `npx convex codegen` to confirm the hand-edited `api.d.ts`.

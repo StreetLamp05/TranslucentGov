@@ -461,7 +461,7 @@ Updated incrementally as decisions are locked in.
   - Each row: agency name, owner chip (§2.1.2 owner labels), open count, fixed count.
   - Sorted by open count, descending. **"Routing unclear"** always sits last, whatever its count.
 - Tapping a group opens `/gov/<agency-slug>`, that group's queue (§5.5.2). The slug comes from the agency string, since there's no stored id (§2.1.4).
-- Counts are `open` / `fixed` reports only (§2.1.3). They update live, and Convex subscriptions are free.
+- Counts are `open` / `fixed` reports only (§2.1.3). They update live: through Convex subscriptions on the Convex build, and by `useLive` polling about every 10 s on the Postgres stack, like the feed and map (§1.1.1). *(Corrected 2026-10-28: Oct 30 runs on Postgres; US44 ports the queries.)*
 - Rationale: the overview is the Mayor's "who has what", and the group page is a department's "what's mine". Listing empty agencies is honest and keeps the list stable during the demo.
 - Rejected:
   - One page with group filter chips: no comparison across groups at a glance.
