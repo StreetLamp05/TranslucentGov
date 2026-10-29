@@ -8,7 +8,7 @@ import { blobToImage, GeminiError } from "./lib/gemini";
 import { screenPost } from "./lib/screenPrompt";
 import { transcribe } from "./lib/transcribe";
 
-// Wait before the retry when neither Gemini nor Groq sent a retry delay.
+// Wait before the retry when Gemini sent no retry delay.
 export const RETRY_DELAY_MS = 1000;
 const GEOCODE_TIMEOUT_MS = 5000;
 
@@ -53,12 +53,9 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
   }
 }
 
-// Gemini's errors carry `retryAfterMs`. Groq's (US11) only say "Retry after N seconds." in
-// the message.
+// Gemini's errors (screening and transcription) carry `retryAfterMs` from a 429.
 function retryDelayMs(error: unknown): number {
-  if (error instanceof GeminiError) return error.retryAfterMs ?? RETRY_DELAY_MS;
-  const seconds = error instanceof Error ? /Retry after ([\d.]+) seconds/.exec(error.message)?.[1] : undefined;
-  return seconds ? Number(seconds) * 1000 : RETRY_DELAY_MS;
+  return (error instanceof GeminiError ? error.retryAfterMs : undefined) ?? RETRY_DELAY_MS;
 }
 
 // Signature from US5; mutations live in screeningDb.ts, because a "use node" file can only

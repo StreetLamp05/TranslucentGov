@@ -206,9 +206,79 @@
           "agentDoable": false
         }
       ]
+    },
+    {
+      "tempId": "F10",
+      "title": "F10: Triage dashboard",
+      "body": "Each government group sees the public reports routed to it, so every group can own its issues and leadership can see who has what. A filtered view with no claim status: a group owns its issues by closing them through the verified fix (Scope addendum 2026-10-28).\n\nBuilt as Convex queries plus pages first (US42, US43). The API shapes stay the same, so US44 adds the Postgres route handlers and US40 waits for it. Oct 30 runs on the Postgres stack (user, 2026-10-28).\n\nChildren: US42, US43, US44, US45.",
+      "label": "feature",
+      "area": "web",
+      "specSection": "§2.1.4, §3.1.3, §5.5.1, §5.5.2, §6.1.2",
+      "stories": [
+        {
+          "tempId": "US42",
+          "title": "US42: See every agency's open and fixed counts at /gov",
+          "body": "As city staff or the Mayor, I can open `/gov` and see every agency in the routing table with how many reports it has open and fixed, so I know who has what.\n\n- A report's group is `ROUTING[category].agency` from the active city (`convex/lib/routing.ts`), worked out at query time, not read from the stored `agency` field (§2.1.4). Categories that share an agency share a group.\n- **Query** `triage.overview` in `convex/triage.ts`: reads `open` and `fixed` reports through the `by_status_createdAt` index and returns **every** distinct agency in `ACTIVE_CITY.routing`, including those with 0 reports. Each entry has agency, owner label (`ACTIVE_CITY.ownerLabels`), slug, open count and fixed count. Sorted by open count, descending, with **\"Routing unclear\"** (`other`) always last (§5.5.1). `pending` and `held` never count (§2.1.3).\n- Put `agencySlug(agency)` (URL-safe, stable) and the grouping helpers in `convex/lib/triageGroups.ts`, which US43 reuses.\n- **Page** `app/gov/page.tsx`: public with no login, outside `app/(tabs)`, so there's no tab bar (§3.1.3). Counts update live. Each row links to `/gov/<slug>` (US43).\n- Out of scope: the public card keeps showing the stored `agency` (§2.1.4 implementation note).\n\nFiles this card owns: `convex/triage.ts`, `convex/lib/triageGroups.ts`, `app/gov/page.tsx`, `components/gov/*`, and their tests.\n\nDon't change `convex/schema.ts`. If a field or index is missing, stop and ask.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Test: for both the San Francisco and Mableton routing tables, the overview returns each distinct agency exactly once, including agencies with 0 reports\n- [ ] Test: \"Routing unclear\" is last even when it has the most open reports; the other groups are ordered by open count, descending\n- [ ] Test: `pending` and `held` reports aren't counted; an `open` and a `fixed` report land in the right agency's counts\n- [ ] Test: `agencySlug` is URL-safe and unique across every agency in both city profiles (e.g. \"PG&E / SFPUC Streetlights\")\n- [ ] The query returns only agency, owner, slug and counts, with no report fields\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human, on a phone after merge; not part of the agent review):\n- [ ] `/gov` lists every agency, and the counts match what the map shows for open and fixed\n- [ ] A new post that clears screening bumps the right agency's open count without a reload\n\nPriority: demo-critical.",
+          "area": "web",
+          "size": "S",
+          "specSection": "§2.1.4, §3.1.3, §5.5.1",
+          "blockedBy": [],
+          "priority": "demo-critical",
+          "agentDoable": true,
+          "issueNumber": 14
+        },
+        {
+          "tempId": "US43",
+          "title": "US43: Work an agency's queue at /gov/<slug>",
+          "body": "As someone in a city department, I can open my agency's page and see its open reports ranked by how many neighbors flagged them, plus what we've recently fixed, and tap any one to watch it.\n\n- **Query** `triageGroup.queue({slug})` in `convex/triageGroup.ts`: resolves the slug with `agencySlug` (US42) against the active routing table and returns `null` for an unknown slug, otherwise `{agency, owner, open, fixed}` (§5.5.2).\n  - **Open:** sorted by `1 + meTooCount`, descending, with the newest `createdAt` first on a tie (retcon 2026-10-28: a fresh live post shows near the top, §6.1.2).\n  - **Recently fixed:** sorted by `fixedAt`, newest first. All fixed reports for now.\n- Rows use an allowlist projection, like `toMapReport` in `convex/map.ts`: `_id`, title, street, category, status, `meTooCount`, `createdAt`, `fixedAt`, `isSample`, thumbnail URL. No transcript, segments, description, poster, tokens or fixer identity (§3.1.3, §7.1.1).\n- **Page** `app/gov/[slug]/page.tsx`: each row follows the `/fix` list (§5.3.1): thumbnail, title, street, days open (or \"Fixed in N days\", using the same today / same-day wording as the feed cards, §6.1.1), me-too count, and the Sample badge on seeded reports. An unknown slug shows \"No such group\" with a link back to `/gov`.\n- Tapping a row opens `/?report=<id>` (the existing deep link, §5.2.1). No new detail screen and no write actions. The page updates live.\n\nFiles this card owns: `convex/triageGroup.ts`, `app/gov/[slug]/*`, additions to `convex/lib/triageGroups.ts` and `components/gov/*`, and their tests.\n\nDon't change `convex/schema.ts`. If a field or index is missing, stop and ask.\n\nAcceptance criteria (agent-verifiable):\n- [ ] Test: open reports sort by `1 + meTooCount` descending, with the newer `createdAt` first on a tie; fixed reports sort by `fixedAt` descending\n- [ ] Test: a report whose category maps to another agency, and any `pending` / `held` report, never appears; an `other` report appears under the \"Routing unclear\" slug; an unknown slug returns `null`\n- [ ] Test: the row type has no `transcript`, `segments`, `description`, `residentId` or `fixedBy` field, including for an `audioMuted` report\n- [ ] Each row links to `/?report=<id>`\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human, on a phone after merge; not part of the agent review):\n- [ ] From `/gov`, tap an agency, then a row: the feed opens at that card and plays it\n- [ ] Verify a fix through `/fix`: the report moves from Open to Recently fixed on an open `/gov/<slug>` page without a reload\n\nPriority: demo-critical.",
+          "area": "web",
+          "size": "M",
+          "specSection": "§5.5.2, §2.1.4, §3.1.3",
+          "blockedBy": [
+            "US42"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true,
+          "issueNumber": 15
+        },
+        {
+          "tempId": "US44",
+          "title": "US44: Serve the triage dashboard from Postgres",
+          "body": "As city staff, `/gov` and each agency's queue keep working, and keep updating without a refresh, on the self-hosted Postgres stack that Oct 30 runs on.\n\nPorts: `convex/triage.ts` (US42) and `convex/triageGroup.ts` (US43), following US37's pattern. The API shapes stay the same, so the pages don't change; this card adds the Postgres side.\n\n- `server/triage.ts` plus the route handlers `app/api/triage/overview` and `app/api/triage/[slug]` return the same shapes as the Convex queries. They call the unchanged helpers in `triageGroups.ts` (moved to `server/lib/` with the other pure modules, per US34) with the active routing table.\n- They read only `open` / `fixed` reports, with the same allowlist projection: no transcript, segments, description, poster, tokens or fixer identity (§3.1.3, §7.1.1).\n- Thumbnail URLs are presigned MinIO GETs (as in US37).\n- The `/gov` pages switch from `useQuery` to `useLive` (US34), polling about every 10 s like the feed and map (§1.1.1).\n- Must merge before US40 deletes `convex/`. US40 is blocked by this card.\n\nFiles this card owns: `server/triage.ts`, `app/api/triage/*`, the data hooks in `app/gov/*` and `components/gov/*`, and their PGlite tests.\n\nAcceptance criteria (agent-verifiable):\n- [ ] The `overview` and `[slug]` route handlers return the same shapes as `api.triage.overview` and `api.triageGroup.queue`\n- [ ] The US42 and US43 Convex tests are ported to PGlite and pass, including the `pending` / `held` exclusion, the derived group (a stale stored `agency` is ignored), and the no-private-fields check\n- [ ] The grouping helpers' logic is unchanged (they move with US34, but nothing is rewritten)\n- [ ] `/gov` and `/gov/<slug>` poll through `useLive` and pick up a newly approved report without a refresh\n- [ ] `npm test`, `npm run build`, `npm run lint` and `npx tsc --noEmit` pass\n\nManual test (human, on the compose stack):\n- [ ] With `/gov/<slug>` open in one tab, approve a report in that agency's category in another. It appears in the queue within about 10 s, and the `/gov` count goes up\n\nReopened 2026-10-28: Oct 30 runs on the Postgres stack (user), and US40 deletes `convex/`, so the dashboard's two queries need a port. It was closed earlier on the assumption that the migration covered it.\n\nPriority: demo-critical.",
+          "area": "web",
+          "size": "S",
+          "specSection": "§5.5.1, §5.5.2, §1.1.1",
+          "blockedBy": [
+            "US34",
+            "US43"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": true,
+          "issueNumber": 16,
+          "reopened": "2026-10-28: Oct 30 runs on Postgres; US40 blocked_by US44"
+        },
+        {
+          "tempId": "US45",
+          "title": "US45: Rehearse the dashboard beat for Oct 30",
+          "body": "As the demo team, we can show on stage that a post filmed live lands in the right San Francisco department's queue: \"Gemini tagged it, the table routed it, SF Public Works owns it.\" (Say \"Claude\" if US31 hasn't shipped.)\n\n- Add the beat to the demo runbook: right after the live post clears screening (§6.1.1 step 2), switch to `/gov`, tap the agency it was routed to, and show the new report in its queue (§6.1.2).\n- The live post must be a **city-owned category** in the SF table: `pothole` or `code_violation` (both SF Public Works) are best. Avoid `trash_missed` (Recology) and `streetlight` (PG&E / SFPUC), which are utilities. The runbook names what to film.\n- Fallback in the runbook: if screening is slow on stage, show `/gov/<slug>` with an existing city-owned SF report instead.\n- Two-screen upgrade: if the Morehouse stage has two displays, keep `/gov/<slug>` up on a laptop for the whole demo. Same build, no extra seconds.\n- Runs with `ACTIVE_CITY = SAN_FRANCISCO` and the existing SF reports kept (§6.1.1 retcon, 2026-10-28), on whichever backend F9's cut line picks. Coordinate with US41's phone rehearsal, which is the same session. Pitch line: \"switching it to Mableton is one config line.\"\n\nFiles this card owns: the dashboard section of the demo runbook. US40 owns `README.md`, so if the runbook lives there, add this section after US40 merges or in a separate `docs/demo-runbook.md`.\n\nAcceptance criteria (agent-verifiable):\n- [ ] The runbook has the dashboard beat, the SF city-owned-category rule, the slow-screening fallback and the two-screen option, each citing §6.1.2\n\nManual test (human, rehearsal with the San Francisco profile; not part of the agent review):\n- [ ] Film a pothole or code violation live, and it appears in SF Public Works' queue on `/gov`, timed under ~8 s from switching screens\n- [ ] Find out whether the stage has two displays, and record the answer in the runbook\n\nPriority: demo-critical.",
+          "area": "docs",
+          "size": "S",
+          "specSection": "§6.1.2",
+          "blockedBy": [
+            "US43"
+          ],
+          "priority": "demo-critical",
+          "agentDoable": false,
+          "issueNumber": 17
+        }
+      ],
+      "issueNumber": 13
     }
   ],
   "openQuestions": [
     "Model ID: confirm the current Gemini Pro model ID at build time (US31) instead of trusting a hardcoded default."
+  ],
+  "notes": [
+    "F10 triage dashboard (2026-10-28, design-feat): Pushed 2026-10-28 to StreetLamp05/TranslucentGov (#13–#17). Revised the same day: #16 US44 closed (not planned), and #13/#14/#15 trimmed to a single backend. IDs checked against the repo on 2026-10-28: F9 and US31–US41 are taken (#1–#12), so this run uses F10 and US42–US45. One backend (user, 2026-10-28): the M1 migration keeps the same API calls, variables and return shapes and only swaps the database, so the dashboard is written as ordinary Convex queries and moves with everything else. US44 (a dedicated port) was closed. No schema change on either backend. Groups are worked out at query time from `routing[category].agency` (§2.1.4). Every dashboard read uses an allowlist projection (like `toMapReport` in `convex/map.ts`): no transcript, segments, description, poster, tokens or fixer identity (§3.1.3, §7.1.1). `/gov` lives outside `app/(tabs)`, so it has no tab-bar entry, like `/fix` (§3.1.3). UI follows the partner's wireframes in `design/` when present (§5 is directional); otherwise plain Tailwind matching the `/fix` list."
   ]
 }

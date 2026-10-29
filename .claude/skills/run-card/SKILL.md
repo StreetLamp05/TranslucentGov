@@ -1,6 +1,6 @@
 ---
 name: run-card
-description: End-to-end card run for GovTok — runs `start-card` (ramp-up + implementation) in this session, then hands the finished change to a separate review agent that runs `review-card` (which spins up its own two adversarial reviewers). Pings the user's phone via PushNotification whenever a stage needs their input. Use when the user wants to start a card and have it built and reviewed hands-off.
+description: End-to-end card run for GovTok — runs `start-card` (ramp-up + implementation) in this session, then runs `review-card`, which hands the finished change to one fresh adversarial reviewer. Pings the user's phone via PushNotification whenever a stage needs their input. Use when the user wants to start a card and have it built and reviewed hands-off.
 metadata:
   author: david
   version: "0.1.0"
@@ -34,19 +34,17 @@ Other `run-card` sessions may be running in sibling worktrees (see `dispatch-car
 
 Do **not** commit or push — git is manual for this user.
 
-## 3. Hand off to a review agent
+## 3. Review
 
-Launch **one** `Agent` call, `subagent_type: general-purpose` (fresh, not `fork` — the reviewer must not inherit your reasoning about the implementation). Its prompt must be self-contained:
+Invoke the `review-card` skill in this session and follow it. It gathers the context, then launches **one** fresh `general-purpose` reviewer (not `fork`), so the review stays independent of your reasoning about the implementation. There's no separate coordinator agent: that layer re-read everything the reviewer reads and cost as much as a reviewer (2026-10-28, cut to save usage).
 
-- Repo path, branch name, card ID / issue number.
-- Instruction to read `.claude/skills/review-card/SKILL.md` and execute it exactly — including launching its own two parallel fresh `general-purpose` reviewers (Agent A: implementation/AC, Agent B: scope/spec-alignment) — and to gather the shared context itself rather than trust anything you summarize about the change.
-- It must **not** fix anything, ask the user anything, or commit. It returns the synthesized review-card report (AC checklist with proof, findings by lens, disagreements, verdict).
-- It must end its report with exactly one machine-readable line:
-  - `RUN-CARD-VERDICT: CLEAN` — every AC checked off with proof, no blocking findings.
-  - `RUN-CARD-VERDICT: NEEDS_INPUT — <one-line reason>` — any unchecked AC, blocking finding, or agent disagreement on something material.
-  - `RUN-CARD-VERDICT: NO_SUBAGENTS` — if it has no `Agent` tool and can't spawn the two reviewers. In that case, fall back by invoking `review-card` yourself in this session.
+- Don't feed the reviewer your own account of the change beyond what `review-card` step 3 lists. Let it read the diff itself.
+- The reviewer must **not** fix anything, ask the user anything, or commit. It also skips the full test/build gate you already ran in step 2 (see `review-card` step 4).
+- Wait for its completion notification; don't poll and don't start reviewing in parallel yourself.
 
-Wait for the completion notification; don't poll and don't start reviewing in parallel yourself.
+Then write the review-card report, ending with exactly one machine-readable line:
+- `RUN-CARD-VERDICT: CLEAN` — every AC checked off with proof, no blocking findings.
+- `RUN-CARD-VERDICT: NEEDS_INPUT — <one-line reason>` — any unchecked AC, or a blocking finding.
 
 ## 4. Fix what needs no decision
 
@@ -55,13 +53,13 @@ Sort every finding in the report, blocking or not, into one of two groups:
 - **Fix:** a defect with one obviously correct fix inside the card's scope. Examples: a reproduced bug, a missing error path, a stale-state race, misleading error text, a doc comment, or matching a sibling card's text to avoid a merge conflict. Nothing about the product, spec or AC changes.
 - **Decide:** anything that changes behavior the spec or AC defines, picks between reasonable options, widens scope, adds a prop or field another card will depend on, or would edit the spec. Also any finding that marks a spec inconsistency.
 
-Fix the **Fix** group in this session without pinging. Add a regression test for each bug where one is practical, and re-run step 2's verification. Record each fix under a "Review fixes" heading in `tasks/<CardID>-todo.md`. If you fixed anything blocking, run step 3 again (a fresh review agent). Allow at most 2 fix rounds; if a blocking finding survives, treat it as **Decide**.
+Fix the **Fix** group in this session without pinging. Add a regression test for each bug where one is practical, and re-run step 2's verification. Record each fix under a "Review fixes" heading in `tasks/<CardID>-todo.md`. Run one review round only. Re-review (step 3 again, with a fresh reviewer) only when a blocking finding needed a non-trivial change; otherwise step 2's re-verification is enough. If a blocking finding survives, treat it as **Decide**.
 
 When unsure which group a finding belongs to, it's **Decide**.
 
 ## 5. Report
 
-Relay the final review agent's report to the user (it isn't shown to them automatically), meaning the AC checklist and findings, not a paraphrase that drops the evidence. Then list what you fixed in step 4 and what's left for them to decide.
+Relay the final review-card report to the user (it isn't shown to them automatically), meaning the AC checklist and findings, not a paraphrase that drops the evidence. Then list what you fixed in step 4 and what's left for them to decide.
 
 - **Something still blocks, or a Decide item is open:** ping (`<ID> review: <reason>`), present the report and the Decide list, and stop. Don't act on Decide items yourself.
 - `CLEAN`, or only fixed findings and non-blocking Decide items remain: ping once that it's ready for their manual commit (`<ID> done: all N ACs verified, review clean — ready to commit`), since the run can't finish without them either way. List any non-blocking Decide items in the message. Add the review section to `tasks/<CardID>-todo.md`.

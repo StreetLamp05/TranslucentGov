@@ -96,10 +96,12 @@ Then prepare the worktree, which doesn't have the main checkout's untracked file
 tmux has-session -t gt-cards 2>/dev/null || tmux new-session -d -s gt-cards -n main -c "$PWD"
 tmux set-option -t gt-cards remain-on-exit on
 tmux new-window -t gt-cards -n <CardID> -c "<worktree-path>" \
-  "scripts/with-node.sh claude --remote-control=<CardID> --permission-mode auto 'Run /run-card for issue #<n>'"
+  "scripts/with-node.sh claude --model sonnet --effort medium --remote-control=<CardID> --permission-mode auto 'Run /run-card for issue #<n>'"
 ```
 
 `scripts/with-node.sh` starts the runner on the repo's pinned Node (`.nvmrc`), so every `convex dev` it runs can push `"use node"` actions to the local backend.
+
+Runners use Sonnet at medium effort (the user's call, 2026-10-28, to cut usage). Most cards are ports or features with spelled-out ACs. If a card is unusually open-ended, ask the user in step 5 whether it should get the default model instead.
 
 Use the `--remote-control=<name>` form: the flag takes an optional value, so a space-separated name could swallow the prompt. The runner names itself after the card, so it's easy to find in the Claude app.
 

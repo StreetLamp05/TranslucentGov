@@ -22,6 +22,7 @@ import type * as lib_postMedia from "../lib/postMedia.js";
 import type * as lib_publicReport from "../lib/publicReport.js";
 import type * as lib_screenPrompt from "../lib/screenPrompt.js";
 import type * as lib_transcribe from "../lib/transcribe.js";
+import type * as lib_triageGroups from "../lib/triageGroups.js";
 import type * as map from "../map.js";
 import type * as me from "../me.js";
 import type * as meToos from "../meToos.js";
@@ -36,9 +37,12 @@ import type * as screening from "../screening.js";
 import type * as screeningDb from "../screeningDb.js";
 import type * as seed from "../seed.js";
 import type * as stats from "../stats.js";
+import type * as triage from "../triage.js";
+import type * as triageGroup from "../triageGroup.js";
 import type * as videoIntake from "../videoIntake.js";
 import type * as videoIntakeAuth from "../videoIntakeAuth.js";
 import type * as videoIntakeDb from "../videoIntakeDb.js";
+import type * as videoIntakeTranscribe from "../videoIntakeTranscribe.js";
 
 import type {
   ApiFromModules,
@@ -61,6 +65,7 @@ declare const fullApi: ApiFromModules<{
   "lib/publicReport": typeof lib_publicReport;
   "lib/screenPrompt": typeof lib_screenPrompt;
   "lib/transcribe": typeof lib_transcribe;
+  "lib/triageGroups": typeof lib_triageGroups;
   map: typeof map;
   me: typeof me;
   meToos: typeof meToos;
@@ -75,9 +80,12 @@ declare const fullApi: ApiFromModules<{
   screeningDb: typeof screeningDb;
   seed: typeof seed;
   stats: typeof stats;
+  triage: typeof triage;
+  triageGroup: typeof triageGroup;
   videoIntake: typeof videoIntake;
   videoIntakeAuth: typeof videoIntakeAuth;
   videoIntakeDb: typeof videoIntakeDb;
+  videoIntakeTranscribe: typeof videoIntakeTranscribe;
 }>;
 
 /**

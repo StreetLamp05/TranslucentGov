@@ -621,6 +621,59 @@
       ],
       "itemId": "PVTI_lAHOBPSNSc4BpM9bzhEVmCc",
       "fieldsSet": true
+    },
+    "F10": {
+      "specSection": "§2.1.4, §3.1.3, §5.5.1, §5.5.2, §6.1.2",
+      "issueNumber": 13,
+      "repo": "StreetLamp05/TranslucentGov",
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/13",
+      "title": "F10: Triage dashboard"
+    },
+    "US42": {
+      "specSection": "§2.1.4, §3.1.3, §5.5.1",
+      "issueNumber": 14,
+      "repo": "StreetLamp05/TranslucentGov",
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/14",
+      "title": "US42: See every agency's open and fixed counts at /gov",
+      "parentLinked": true
+    },
+    "US43": {
+      "specSection": "§5.5.2, §2.1.4, §3.1.3",
+      "issueNumber": 15,
+      "repo": "StreetLamp05/TranslucentGov",
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/15",
+      "title": "US43: Work an agency's queue at /gov/<slug>",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US42"
+      ]
+    },
+    "US44": {
+      "specSection": "§5.5.1, §5.5.2, §1.1.1",
+      "issueNumber": 16,
+      "repo": "StreetLamp05/TranslucentGov",
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/16",
+      "title": "US44: Serve the triage dashboard from Postgres",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US34",
+        "US43"
+      ],
+      "reopened": "2026-10-28",
+      "blocking": [
+        "US40"
+      ]
+    },
+    "US45": {
+      "specSection": "§6.1.2",
+      "issueNumber": 17,
+      "repo": "StreetLamp05/TranslucentGov",
+      "url": "https://github.com/StreetLamp05/TranslucentGov/issues/17",
+      "title": "US45: Rehearse the dashboard beat for Oct 30",
+      "parentLinked": true,
+      "blockedByLinked": [
+        "US43"
+      ]
     }
   }
 }

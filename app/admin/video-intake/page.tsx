@@ -167,7 +167,7 @@ export default function VideoIntakePage() {
       <header>
         <h1 className="text-2xl font-extrabold">Video intake test</h1>
         <p className="mt-2 text-sm text-[#4A5A6E]">
-          Record a clip or choose an MP4/WebM video up to 25 MB. Convex stores it, then Groq Whisper transcribes it.
+          Record a clip or choose an MP4/WebM video up to 25 MB. Convex stores it, then Gemini transcribes it.
         </p>
         <button
           type="button"

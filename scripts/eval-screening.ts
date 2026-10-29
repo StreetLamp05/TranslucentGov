@@ -5,7 +5,7 @@
 //
 // labels.json (default scripts/fixtures/labels.json) is an array of cases. Image paths are
 // relative to the labels file. Videos go in as their extracted frames, and narration goes
-// in as `transcript`, so the eval needs neither ffmpeg nor Groq:
+// in as `transcript`, so the eval needs neither ffmpeg nor transcription:
 //   [{ "id": "clean-pothole", "images": ["pothole.jpg"], "transcript": "...", "description": "...",
 //      "street": "Floyd Rd", "expected": { "verdict": "pass", "category": "pothole" } }]
 // Entries without `images` or `expected.verdict` are listed as skipped, and any skip fails the

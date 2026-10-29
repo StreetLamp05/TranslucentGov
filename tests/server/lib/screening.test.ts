@@ -9,9 +9,9 @@ test("the screening-failed reason is the §4.2.1 string", () => {
 describe("screeningErrorSummary", () => {
   test.each([
     [
-      "a Groq error drops the response body (org ID, usage)",
-      'Groq transcription failed (429). Retry after 7 seconds. {"error":{"message":"Rate limit reached in organization org_01abc: Limit 7200, Used 7190"}}',
-      "Groq transcription failed (429). Retry after 7 seconds.",
+      "a plain-text error drops the response body after it (org ID, usage)",
+      'Transcription failed (429). Retry after 7 seconds. {"error":{"message":"Rate limit reached in organization org_01abc: Limit 7200, Used 7190"}}',
+      "Transcription failed (429). Retry after 7 seconds.",
     ],
     [
       "a Gemini API error drops the SDK's JSON and closes the bracket",

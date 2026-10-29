@@ -3,12 +3,12 @@ import { AUDIO_BITS_PER_SECOND, MAX_RECORD_MS, VIDEO_BITS_PER_SECOND } from "./c
 import { frameSize } from "./frames";
 import { normalizeMimeType, pickMimeType } from "./mimeType";
 
-// Uploaded clips (§4.1.1): a new iPhone saves .mov (often HEVC, often 4K) that Groq won't take
+// Uploaded clips (§4.1.1): a new iPhone saves .mov (often HEVC, often 4K) that transcription won't take
 // (§1.1.4) and that can be well over 25 MB. The browser can decode it, so it's played in a hidden
 // <video>, drawn to a canvas of 1280 px or less on the long edge, and re-recorded with the same
 // MediaRecorder settings as a live clip. It runs in real time, so a 20 s clip takes about 20 s.
 
-// The containers Groq and every phone accept as they are.
+// The containers Gemini and every phone accept as they are.
 const PASS_THROUGH_TYPES = ["video/mp4", "video/webm"];
 const STALL_MS = 10_000;
 const FPS = 30;
