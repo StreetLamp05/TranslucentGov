@@ -5,8 +5,9 @@ import { useState, type ReactNode } from "react";
 import CameraCapture from "@/components/capture/CameraCapture";
 import { ApiError, mutate, query } from "@/lib/data/api";
 import { LIVE_STATUS_MS, useLive } from "@/lib/data/useLive";
+import { useT, type TFunction } from "@/lib/i18n/I18nProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
-import { CLIP_TOO_BIG } from "@/server/lib/postLimits";
 import type { OwnerReport } from "@/server/lib/publicReport";
 import { MAX_SCREENING_RETRIES, SCREENING_FAILED_REASON } from "@/server/lib/screening";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
@@ -19,8 +20,9 @@ import { uploadMedia } from "@/lib/upload";
 // exported for the Me page (US24): they render a layout-neutral <section>, and this screen
 // supplies the page around them (Page).
 
-const SEND_ERROR = "We couldn't send your post. Check your connection and try again.";
-const RETRY_ERROR = "We couldn't start the check again. Check your connection and try again.";
+// An error line is either one of our own messages (translated when shown) or text the server sent.
+type UiError = { key: MessageKey } | { text: string };
+const errorText = (error: UiError, t: TFunction) => ("key" in error ? t(error.key) : error.text);
 
 const primary = "rounded-xl bg-[#173F35] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#245446] disabled:opacity-40";
 const secondary = "rounded-xl border border-[#D8DDD2] bg-[#FFFEFA] px-4 py-3 font-semibold disabled:opacity-40";
@@ -32,6 +34,7 @@ export default function CheckingScreen({
   reportId: string;
   onPostAnother: () => void;
 }) {
+  const t = useT();
   const token = useResidentToken();
   // Polled every ~2s (§1.1.1), so the verdict appears without a refresh.
   const report = useLive(
@@ -41,15 +44,15 @@ export default function CheckingScreen({
   );
   const postAnother = (
     <button onClick={onPostAnother} className={secondary}>
-      Post another
+      {t("post.check.postAnother")}
     </button>
   );
 
   if (report === null) {
     return (
       <Page>
-        <Panel title="We couldn't find this post">
-          <p className="text-[#4A5A6E]">It may have been removed.</p>
+        <Panel title={t("post.check.notFoundTitle")}>
+          <p className="text-[#4A5A6E]">{t("post.check.notFoundBody")}</p>
           {postAnother}
         </Panel>
       </Page>
@@ -60,8 +63,8 @@ export default function CheckingScreen({
     return (
       <Page busy>
         <span className="h-10 w-10 animate-spin rounded-full border-4 border-[#D8DDD2] border-t-[#173F35]" />
-        <h1 className="text-2xl font-extrabold">Checking…</h1>
-        <p className="text-[#4A5A6E]">We&apos;re checking your post before it goes live. This takes a few seconds.</p>
+        <h1 className="text-2xl font-extrabold">{t("post.check.checkingTitle")}</h1>
+        <p className="text-[#4A5A6E]">{t("post.check.checkingBody")}</p>
       </Page>
     );
   }
@@ -69,10 +72,16 @@ export default function CheckingScreen({
   // Full screen on its own, over everything else on the page.
   if (report.status === "held" && report.verdict === "emergency") return <Emergency report={report} />;
 
-  return <Page>{result(report, token, onPostAnother, postAnother)}</Page>;
+  return <Page>{result(report, token, onPostAnother, postAnother, t)}</Page>;
 }
 
-function result(report: OwnerReport, token: string | null, onPostAnother: () => void, postAnother: ReactNode) {
+function result(
+  report: OwnerReport,
+  token: string | null,
+  onPostAnother: () => void,
+  postAnother: ReactNode,
+  t: TFunction,
+) {
   if (report.status !== "held") return <Posted report={report}>{postAnother}</Posted>;
   // "Screening failed" carries no verdict (US13's markFailed clears it), so it's matched on the reason.
   if (report.reason === SCREENING_FAILED_REASON) {
@@ -81,8 +90,8 @@ function result(report: OwnerReport, token: string | null, onPostAnother: () => 
   if (report.verdict === "retake") return <Retake token={token} report={report} />;
   // reject, and any hold without a verdict this screen knows
   return (
-    <Panel title="We can't post this">
-      <p className="text-[#4A5A6E]">{report.reason ?? "It didn't pass our check, so it isn't public."}</p>
+    <Panel title={t("post.check.cantPostTitle")}>
+      <p className="text-[#4A5A6E]">{report.reason ?? t("post.check.cantPostBody")}</p>
       {postAnother}
       <HoldDebug report={report} />
     </Panel>
@@ -99,8 +108,9 @@ export function HoldDebug({ report, className = "text-[#4A5A6E]" }: { report: Ow
 }
 
 function Posted({ report, children }: { report: OwnerReport; children: ReactNode }) {
+  const t = useT();
   return (
-    <Panel title="Posted">
+    <Panel title={t("post.check.postedTitle")}>
       {report.title && (
         <p className="text-[#4A5A6E]">
           {report.title}
@@ -110,17 +120,15 @@ function Posted({ report, children }: { report: OwnerReport; children: ReactNode
       {report.audioMuted && (
         // §4.2.1 mute: plays muted, no captions, description hidden.
         <div role="note" className="rounded-lg border border-[#E8D9A8] bg-[#FBF5E1] p-4 text-left text-sm text-[#5C4A12]">
-          <p className="font-bold">Posted with some things hidden</p>
+          <p className="font-bold">{t("post.check.mutedTitle")}</p>
           <p className="mt-1">
-            {report.mediaType === "video"
-              ? "Something said or written in it can't be shown publicly, so it plays without sound or captions, and any description is hidden."
-              : "Something written in it can't be shown publicly, so any description is hidden."}
+            {report.mediaType === "video" ? t("post.check.mutedVideo") : t("post.check.mutedPhotos")}
           </p>
           {report.reason && <p className="mt-1">{report.reason}</p>}
         </div>
       )}
       <Link href={`/?report=${report._id}`} className={primary}>
-        See it in the feed
+        {t("post.check.seeInFeed")}
       </Link>
       {children}
     </Panel>
@@ -129,6 +137,7 @@ function Posted({ report, children }: { report: OwnerReport; children: ReactNode
 
 // Shown the moment the verdict arrives (§4.2.1), over everything else on the page.
 function Emergency({ report }: { report: OwnerReport }) {
+  const t = useT();
   return (
     <main
       role="alertdialog"
@@ -136,18 +145,18 @@ function Emergency({ report }: { report: OwnerReport }) {
       className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-[#B42318] p-6 text-center text-white"
     >
       <h1 id="emergency-title" className="text-3xl font-extrabold">
-        This looks like an emergency
+        {t("post.check.emergencyTitle")}
       </h1>
       {report.reason && <p className="text-lg">{report.reason}</p>}
       <a
         href="tel:911"
         className="w-full max-w-sm rounded-2xl bg-white py-5 text-2xl font-extrabold text-[#B42318] shadow-lg"
       >
-        Call 911
+        {t("post.check.call911")}
       </a>
-      <p className="text-sm">Your post isn&apos;t public. Emergencies go to 911, not the feed.</p>
+      <p className="text-sm">{t("post.check.emergencyNote")}</p>
       <Link href="/" className="text-sm font-semibold underline">
-        Back to the feed
+        {t("post.check.backToFeed")}
       </Link>
       <HoldDebug report={report} className="text-white/80" />
     </main>
@@ -156,13 +165,14 @@ function Emergency({ report }: { report: OwnerReport }) {
 
 // Record again with the same media type; the new files replace the old ones on this report.
 export function Retake({ token, report }: { token: string | null; report: OwnerReport }) {
+  const t = useT();
   const [step, setStep] = useState<"reason" | "capture" | "sending">("reason");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
 
   async function send(files: { clip?: Blob; frames: Blob[] }) {
     if (!token) return;
     if (files.clip && files.clip.size > MAX_CLIP_BYTES) {
-      setError(CLIP_TOO_BIG);
+      setError({ key: "post.clipTooBig" });
       setStep("reason");
       return;
     }
@@ -177,7 +187,7 @@ export function Retake({ token, report }: { token: string | null; report: OwnerR
       await mutate("/api/retake", { reportId: report._id, mediaType: report.mediaType, clipStorageId, frameStorageIds });
     } catch (err) {
       // Back to the reason, where the error shows (the camera covers the screen), with Retake again.
-      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : SEND_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? { text: err.data } : { key: "post.check.sendError" });
       setStep("reason");
     }
   }
@@ -185,14 +195,14 @@ export function Retake({ token, report }: { token: string | null; report: OwnerR
   const isVideo = report.mediaType === "video";
   const errorLine = error && (
     <p role="alert" className="text-[#8A1C1C]">
-      {error}
+      {errorText(error, t)}
     </p>
   );
 
   if (step === "sending") {
     return (
-      <Panel title="Sending your retake…">
-        <p className="text-[#4A5A6E]">This takes a few seconds.</p>
+      <Panel title={t("post.check.sendingRetake")}>
+        <p className="text-[#4A5A6E]">{t("post.check.sendingBody")}</p>
       </Panel>
     );
   }
@@ -214,8 +224,8 @@ export function Retake({ token, report }: { token: string | null; report: OwnerR
 
   // No Post another: a second post would leave this one held instead of replacing its clip (§4.2.1).
   return (
-    <Panel title={isVideo ? "Please record again" : "Please pick other photos"}>
-      <p className="text-[#4A5A6E]">{report.reason ?? "Something in your post can't be shown publicly."}</p>
+    <Panel title={isVideo ? t("post.check.retakeVideoTitle") : t("post.check.retakePhotosTitle")}>
+      <p className="text-[#4A5A6E]">{report.reason ?? t("post.check.retakeBody")}</p>
       {errorLine}
       <button
         onClick={() => {
@@ -225,7 +235,7 @@ export function Retake({ token, report }: { token: string | null; report: OwnerR
         disabled={!token}
         className={primary}
       >
-        Retake
+        {t("post.check.retake")}
       </button>
       <HoldDebug report={report} />
     </Panel>
@@ -244,8 +254,9 @@ export function ScreeningFailed({
   /** Omit where there's no posting flow to restart (e.g. the Me page). */
   onPostAnother?: () => void;
 }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   const outOfRetries = (report.screeningRetries ?? 0) >= MAX_SCREENING_RETRIES;
 
   async function tryAgain() {
@@ -255,7 +266,7 @@ export function ScreeningFailed({
     try {
       await mutate("/api/retake/retry", { reportId: report._id });
     } catch (err) {
-      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : RETRY_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? { text: err.data } : { key: "post.check.retryError" });
     } finally {
       setBusy(false);
     }
@@ -263,14 +274,11 @@ export function ScreeningFailed({
 
   if (outOfRetries) {
     return (
-      <Panel title="We still couldn't check this post">
-        <p className="text-[#4A5A6E]">
-          We tried a few times. Try posting it again, maybe as photos, or film it in GovTok instead of uploading
-          from your camera app.
-        </p>
+      <Panel title={t("post.check.outOfRetriesTitle")}>
+        <p className="text-[#4A5A6E]">{t("post.check.outOfRetriesBody")}</p>
         {onPostAnother && (
           <button onClick={onPostAnother} className={secondary}>
-            Post another
+            {t("post.check.postAnother")}
           </button>
         )}
         <HoldDebug report={report} />
@@ -279,15 +287,15 @@ export function ScreeningFailed({
   }
 
   return (
-    <Panel title="We couldn't check this post">
-      <p className="text-[#4A5A6E]">Something went wrong on our side. Your post is saved, so you can try the check again.</p>
+    <Panel title={t("post.check.failedTitle")}>
+      <p className="text-[#4A5A6E]">{t("post.check.failedBody")}</p>
       {error && (
         <p role="alert" className="text-[#8A1C1C]">
-          {error}
+          {errorText(error, t)}
         </p>
       )}
       <button onClick={tryAgain} disabled={!token || busy} className={primary}>
-        {busy ? "Starting…" : "Try again"}
+        {busy ? t("post.check.starting") : t("post.check.tryAgain")}
       </button>
       <HoldDebug report={report} />
     </Panel>

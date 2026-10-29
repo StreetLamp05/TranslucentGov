@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 // Bottom tab bar, after spec/UI_mockups: dark over the feed's video, light elsewhere.
 // /fix and /admin/seed live outside this route group, so they never get it.
@@ -36,6 +37,7 @@ function Icon({ children, size = 24, stroke = 2.2 }: { children: ReactNode; size
 }
 
 export default function TabBar() {
+  const t = useT();
   const pathname = usePathname();
   const onFeed = pathname === "/";
 
@@ -58,16 +60,16 @@ export default function TabBar() {
 
   return (
     <nav
-      aria-label="Main"
+      aria-label={t("common.tab.nav")}
       className={`fixed inset-x-0 bottom-0 z-10 mx-auto flex h-[72px] max-w-md items-center justify-around border-t px-2 pb-[env(safe-area-inset-bottom)] ${
         onFeed ? "border-white/10 bg-black" : "border-[#E5E5DB] bg-[#FBFAF5]"
       }`}
     >
-      {tab("/", "Feed", ICON.feed)}
-      {tab("/map", "Map", ICON.map)}
+      {tab("/", t("common.tab.feed"), ICON.feed)}
+      {tab("/map", t("common.tab.map"), ICON.map)}
       <Link
         href="/post"
-        aria-label="Post a problem"
+        aria-label={t("common.tab.post")}
         aria-current={pathname === "/post" ? "page" : undefined}
         className="flex size-11 items-center justify-center rounded-[15px] bg-[#173F35] text-white shadow-[0_3px_10px_rgba(23,63,53,.18)] transition-transform hover:-translate-y-0.5 active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#DDF56B]"
       >
@@ -75,7 +77,7 @@ export default function TabBar() {
           <path d="M12 5v14M5 12h14" />
         </Icon>
       </Link>
-      {tab("/me", "Me", ICON.me)}
+      {tab("/me", t("common.tab.me"), ICON.me)}
     </nav>
   );
 }

@@ -52,14 +52,16 @@ describe("server/db/schema on PGlite", () => {
   it("round-trips a report with its arrays, JSON segments and millisecond times", async () => {
     const resident = await newResident();
     const segments = [{ start: 0, end: 1.5, text: "this has been here since June" }];
+    const segmentsEs = [{ start: 0, end: 1.5, text: "esto lleva aquí desde junio" }];
     const [inserted] = await db
       .insert(reports)
-      .values({ ...reportRow(resident.id), segments, createdAt: 1_761_000_000_000 })
+      .values({ ...reportRow(resident.id), segments, segmentsEs, createdAt: 1_761_000_000_000 })
       .returning();
 
     const [read] = await db.select().from(reports).where(eq(reports.id, inserted.id));
     expect(read.frameStorageIds).toEqual(["frame-1", "frame-2"]);
     expect(read.segments).toEqual(segments);
+    expect(read.segmentsEs).toEqual(segmentsEs);
     expect(read.createdAt).toBe(1_761_000_000_000);
     expect(read.creationTime).toBeGreaterThan(0);
     expect(read.category).toBeNull();

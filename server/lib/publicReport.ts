@@ -24,6 +24,7 @@ export type ReportDoc = {
   frameStorageIds: string[];
   transcript?: string;
   segments?: Segment[];
+  segmentsEs?: Segment[];
   lat: number;
   lng: number;
   street?: string;
@@ -96,7 +97,7 @@ type ProjectedReport<R extends ReportDoc> = Pick<
   | "fixedByKind"
 > &
   // Omitted when audioMuted (§4.2.1).
-  Partial<Pick<R, "description" | "transcript" | "segments">> & {
+  Partial<Pick<R, "description" | "transcript" | "segments" | "segmentsEs">> & {
     clipUrl: string | null;
     frameUrls: (string | null)[];
     fixUrl: string | null;
@@ -183,7 +184,12 @@ async function project<R extends ReportDoc>(media: ReportMedia, report: R): Prom
     // Muted reports never return what was said or written (§4.2.1, §7.1.1).
     ...(report.audioMuted
       ? {}
-      : { description: report.description, transcript: report.transcript, segments: report.segments }),
+      : {
+          description: report.description,
+          transcript: report.transcript,
+          segments: report.segments,
+          segmentsEs: report.segmentsEs,
+        }),
     clipUrl,
     frameUrls,
     fixUrl,

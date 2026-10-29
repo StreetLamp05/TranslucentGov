@@ -6,11 +6,14 @@ import type { OwnerReport, PublicReport } from "@/server/lib/publicReport";
 import { query } from "@/lib/data/api";
 import { useLive } from "@/lib/data/useLive";
 import { useResidentToken } from "@/lib/hooks/useResidentToken";
+import { useT } from "@/lib/i18n/I18nProvider";
+import LanguageSelector from "@/lib/i18n/LanguageSelector";
 import MeReportCard from "./MeReportCard";
 
 type FollowedReport = { createdAt: number; report: PublicReport };
 
 export default function MePageContent() {
+  const t = useT();
   const router = useRouter();
   const token = useResidentToken();
   // The device token goes out as a header (lib/data/api.ts); it's in the key so a token that
@@ -30,34 +33,35 @@ export default function MePageContent() {
     <main className="min-h-dvh bg-[#F4F1E8] pb-24">
       <header className="relative overflow-hidden rounded-b-[30px] bg-[#173F35] px-6 pb-8 pt-9 text-center text-white">
         <div aria-hidden="true" className="absolute -right-14 -top-16 size-48 rounded-full bg-white/[0.035]" />
+        <LanguageSelector tone="light" className="absolute right-4 top-4" />
         <div className="relative mx-auto flex size-[84px] items-center justify-center rounded-full bg-[#DDF56B] text-[#173F35]">
           <ProfileIcon />
         </div>
-        <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">Your neighborhood</p>
-        <h1 className="mt-1 text-[25px] font-semibold tracking-[-0.035em]">Your profile</h1>
-        <p className="mt-2 text-sm text-white/75">Helping make the neighborhood better.</p>
+        <p className="mt-5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/65">{t("me.eyebrow")}</p>
+        <h1 className="mt-1 text-[25px] font-semibold tracking-[-0.035em]">{t("me.title")}</h1>
+        <p className="mt-2 text-sm text-white/75">{t("me.tagline")}</p>
         <p className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/75">
           <LockIcon />
-          Private to this device
+          {t("me.private")}
         </p>
       </header>
 
-      <section aria-label="Your impact" className="grid grid-cols-3 border-b border-[#E3E2D8] bg-[#F8F6EF] px-2 py-6">
-        <Stat label="Reports" value={reports?.length} />
-        <Stat label="Me-toos" value={meToos?.length} divider />
-        <Stat label="Resolved" value={resolved} divider />
+      <section aria-label={t("me.impact")} className="grid grid-cols-3 border-b border-[#E3E2D8] bg-[#F8F6EF] px-2 py-6">
+        <Stat label={t("me.stat.reports")} value={reports?.length} />
+        <Stat label={t("me.stat.meToos")} value={meToos?.length} divider />
+        <Stat label={t("me.stat.resolved")} value={resolved} divider />
       </section>
 
       {(!token || reports === undefined || meToos === undefined) && (
         <p role="status" className="px-5 pt-6 text-sm text-[#68756F]">
-          Loading your activity…
+          {t("me.loading")}
         </p>
       )}
       {token && reports !== undefined && meToos !== undefined && (
         <div className="space-y-8 px-4 pt-7">
           <ReportSection
-            title="Your requests"
-            empty="Your first report starts here. Share a neighborhood issue and follow its progress here."
+            title={t("me.requests.title")}
+            empty={t("me.requests.empty")}
             reports={reports}
             now={now}
             token={token}
@@ -104,6 +108,7 @@ function ReportSection({
   token: string;
   onPostAnother: () => void;
 }) {
+  const t = useT();
   return (
     <section aria-label={title}>
       <SectionHeading title={title} count={reports.length} />
@@ -115,7 +120,7 @@ function ReportSection({
             onClick={onPostAnother}
             className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl bg-[#173F35] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#245446]"
           >
-            Post a problem
+            {t("me.requests.post")}
           </button>
         </div>
       ) : (
@@ -132,12 +137,13 @@ function ReportSection({
 }
 
 function MeTooSection({ reports, now }: { reports: FollowedReport[]; now: number }) {
+  const t = useT();
   return (
-    <section aria-label="Problems you supported">
-      <SectionHeading title="Problems you supported" count={reports.length} />
+    <section aria-label={t("me.supported.title")}>
+      <SectionHeading title={t("me.supported.title")} count={reports.length} />
       {reports.length === 0 ? (
         <p className="rounded-[18px] border border-dashed border-[#D5D9CF] bg-[#F8F6EF] p-5 text-sm text-[#6C7872]">
-          When you join an open report, it will show up here.
+          {t("me.supported.empty")}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">

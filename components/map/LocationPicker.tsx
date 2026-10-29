@@ -3,6 +3,7 @@
 import { AdvancedMarker, APIProvider, Map as GoogleMap } from "@vis.gl/react-google-maps";
 import { useState } from "react";
 import type { LatLng } from "@/lib/demo";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 type Props = {
   initialPoint: LatLng;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Props) {
+  const t = useT();
   const [point, setPoint] = useState(initialPoint);
   const [hasPlacedPin, setHasPlacedPin] = useState(false);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
@@ -19,8 +21,8 @@ export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Pr
   return (
     <main className="flex h-[calc(100dvh-4rem)] flex-col gap-3 p-4">
       <header>
-        <h1 className="text-[23px] font-semibold tracking-[-0.03em] text-[#18382F]">Choose the problem&apos;s location</h1>
-        <p className="mt-1 text-sm text-[#68756F]">Tap the map to place the pin where the problem is.</p>
+        <h1 className="text-[23px] font-semibold tracking-[-0.03em] text-[#18382F]">{t("map.picker.title")}</h1>
+        <p className="mt-1 text-sm text-[#68756F]">{t("map.picker.hint")}</p>
       </header>
       {apiKey && mapId ? (
         <div className="min-h-0 flex-1 overflow-hidden rounded-xl">
@@ -41,9 +43,9 @@ export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Pr
                 }
               }}
             >
-              <AdvancedMarker position={point} title="Selected problem location">
+              <AdvancedMarker position={point} title={t("map.picker.pinTitle")}>
                 <div
-                  aria-label="Selected location pin"
+                  aria-label={t("map.picker.pinLabel")}
                   className="h-7 w-7 rounded-full border-[4px] border-white bg-[#B42318] shadow-[0_2px_8px_rgba(0,0,0,.35)]"
                 />
               </AdvancedMarker>
@@ -52,12 +54,11 @@ export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Pr
         </div>
       ) : (
         <p role="alert" className="rounded-lg border border-[#F5C2C0] bg-[#FDECEC] p-4 text-sm text-[#8A1C1C]">
-          The map isn&apos;t configured. Add NEXT_PUBLIC_GOOGLE_MAPS_KEY and NEXT_PUBLIC_GOOGLE_MAP_ID to enable pin
-          selection.
+          {t("map.picker.notConfigured")}
         </p>
       )}
       <p className="text-center text-xs text-[#68756F]" aria-live="polite">
-        Selected pin: {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+        {t("map.picker.selected", { lat: point.lat.toFixed(5), lng: point.lng.toFixed(5) })}
       </p>
       <div className="flex gap-3">
         <button
@@ -65,7 +66,7 @@ export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Pr
           onClick={onCancel}
           className="flex-1 rounded-lg border px-4 py-3 font-semibold"
         >
-          Back
+          {t("map.picker.back")}
         </button>
         <button
           type="button"
@@ -73,7 +74,7 @@ export default function LocationPicker({ initialPoint, onConfirm, onCancel }: Pr
           disabled={!apiKey || !mapId || !hasPlacedPin}
           className="flex-1 rounded-xl bg-[#173F35] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#245446] disabled:opacity-40"
         >
-          Use this pin
+          {t("map.picker.confirm")}
         </button>
       </div>
     </main>

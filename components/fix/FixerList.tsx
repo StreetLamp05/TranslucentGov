@@ -7,6 +7,7 @@ import type { PublicReport } from "../../server/lib/publicReport";
 import { OWNER_CHIP } from "../../server/lib/routing";
 import { daysLabel, daysOpen } from "../../lib/days";
 import { useCurrentLocation } from "../../lib/hooks/useCurrentLocation";
+import { useT } from "../../lib/i18n/I18nProvider";
 
 // The fixer's list of open reports, nearest first (§5.3.1). Distance is measured from
 // useCurrentLocation, which is DEMO_POINT in demo mode (§6.1.1).
@@ -38,6 +39,7 @@ export function OwnerChip({ report }: { report: PublicReport }) {
 }
 
 export default function FixerList({ reports }: { reports: readonly PublicReport[] }) {
+  const t = useT();
   const location = useCurrentLocation();
   const [now] = useState(() => Date.now());
 
@@ -51,7 +53,7 @@ export default function FixerList({ reports }: { reports: readonly PublicReport[
     <section>
       <LocationNote status={location.status} />
       {ranked.length === 0 ? (
-        <p className="py-12 text-center text-sm text-[#46505C]">No open reports right now.</p>
+        <p className="py-12 text-center text-sm text-[#46505C]">{t("fix.list.empty")}</p>
       ) : (
         <ul className="divide-y divide-[#E2E6EA] overflow-hidden rounded-2xl bg-white">
           {ranked.map(({ report, meters }) => (
@@ -59,13 +61,14 @@ export default function FixerList({ reports }: { reports: readonly PublicReport[
               <Link href={`/fix/${report._id}`} className="flex gap-3 p-3 active:bg-[#F4F6F8]">
                 <Thumbnail url={report.frameUrls[0] ?? null} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-bold">{report.title ?? "Untitled report"}</p>
+                  <p className="truncate font-bold">{report.title ?? t("fix.untitled")}</p>
                   {report.street && <p className="truncate text-xs text-[#46505C]">{report.street}</p>}
                   <div className="mt-1">
                     <OwnerChip report={report} />
                   </div>
                   <p className="mt-1 text-xs text-[#46505C]">
-                    Open · {daysLabel(daysOpen(report.createdAt, now))} · {report.meTooCount} me too
+                    {t("fix.openFor", { days: daysLabel(daysOpen(report.createdAt, now), t) })} ·{" "}
+                    {t("fix.meToo", { count: report.meTooCount })}
                   </p>
                 </div>
                 {meters !== null && (
@@ -90,10 +93,8 @@ function Thumbnail({ url }: { url: string | null }) {
 }
 
 function LocationNote({ status }: { status: ReturnType<typeof useCurrentLocation>["status"] }) {
+  const t = useT();
   if (status === "ready") return null;
-  const text =
-    status === "loading"
-      ? "Finding your location…"
-      : "Location isn't available, so the list isn't sorted by distance.";
+  const text = status === "loading" ? t("fix.list.locating") : t("fix.list.noLocation");
   return <p className="mb-3 text-xs text-[#46505C]">{text}</p>;
 }

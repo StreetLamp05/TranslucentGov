@@ -108,9 +108,10 @@ async function applyVerdict(
     street?: string;
     transcript?: string;
     segments?: Report["segments"];
+    segmentsEs?: Report["segmentsEs"];
   },
 ): Promise<void> {
-  const { verdict, reason, category, title, street, transcript, segments } = result;
+  const { verdict, reason, category, title, street, transcript, segments, segmentsEs } = result;
   await db.transaction(async (tx) => {
     const report = await stillScreening(tx, reportId, media);
     if (!report) return;
@@ -125,6 +126,7 @@ async function applyVerdict(
         // Always written: a photo retake of a narrated video must not keep the old transcript.
         transcript: transcript ?? null,
         segments: segments ?? null,
+        segmentsEs: segmentsEs?.length ? segmentsEs : null,
         category,
         ...ROUTING[category], // owner and agency (§2.1.2)
         verdict,
@@ -200,6 +202,7 @@ export async function screenReport({ reportId, attempt = 0 }: ScreenReportPayloa
       street,
       transcript: transcription?.text,
       segments: transcription?.segments,
+      segmentsEs: transcription?.segmentsEs,
     });
   } catch (error) {
     console.error(`screenReport: attempt ${attempt} on ${reportId} failed:`, error);

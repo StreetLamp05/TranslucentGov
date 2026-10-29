@@ -19,8 +19,8 @@ vi.mock("@google/genai", async (importOriginal) => {
   return { ...actual, GoogleGenAI: FakeGoogleGenAI };
 });
 
-function answer(segments: unknown) {
-  return { candidates: [{ finishReason: "STOP" }], text: JSON.stringify({ segments }) };
+function answer(segments: unknown, segmentsEs?: unknown) {
+  return { candidates: [{ finishReason: "STOP" }], text: JSON.stringify({ segments, segmentsEs }) };
 }
 
 function request() {
@@ -54,10 +54,16 @@ afterEach(() => {
 describe("transcribe", () => {
   it("sends a small clip inline and returns text with timestamped segments", async () => {
     generateContent.mockResolvedValue(
-      answer([
-        { start: 0.2, end: 1.4, text: " There is a pothole here. " },
-        { start: 1.5, end: 3, text: "It's been here since June." },
-      ]),
+      answer(
+        [
+          { start: 0.2, end: 1.4, text: " There is a pothole here. " },
+          { start: 1.5, end: 3, text: "It's been here since June." },
+        ],
+        [
+          { start: 0.2, end: 1.4, text: " Hay un bache aquí. " },
+          { start: 1.5, end: 3, text: "Está aquí desde junio." },
+        ],
+      ),
     );
 
     const result = await transcribe(new Blob(["video bytes"], { type: "video/mp4" }), "video/mp4", "clip.mp4");
@@ -67,6 +73,10 @@ describe("transcribe", () => {
       segments: [
         { start: 0.2, end: 1.4, text: "There is a pothole here." },
         { start: 1.5, end: 3, text: "It's been here since June." },
+      ],
+      segmentsEs: [
+        { start: 0.2, end: 1.4, text: "Hay un bache aquí." },
+        { start: 1.5, end: 3, text: "Está aquí desde junio." },
       ],
     });
     const { contents, config } = request();
@@ -79,7 +89,9 @@ describe("transcribe", () => {
     vi.useFakeTimers();
     upload.mockResolvedValue(uploaded(FileState.PROCESSING));
     get.mockResolvedValueOnce(uploaded(FileState.PROCESSING)).mockResolvedValueOnce(uploaded(FileState.ACTIVE));
-    generateContent.mockResolvedValue(answer([{ start: 0, end: 2, text: "Streetlight is out." }]));
+    generateContent.mockResolvedValue(
+      answer([{ start: 0, end: 2, text: "Streetlight is out." }], [{ start: 0, end: 2, text: "La luz de la calle está apagada." }]),
+    );
 
     const result = transcribe(bigClip(), "video/mp4; codecs=avc1", "big.mp4");
     await vi.advanceTimersByTimeAsync(FILE_POLL_MS * 2);
@@ -87,6 +99,7 @@ describe("transcribe", () => {
     await expect(result).resolves.toEqual({
       text: "Streetlight is out.",
       segments: [{ start: 0, end: 2, text: "Streetlight is out." }],
+      segmentsEs: [{ start: 0, end: 2, text: "La luz de la calle está apagada." }],
     });
     expect(upload).toHaveBeenCalledWith({
       file: expect.any(Blob),
@@ -159,6 +172,7 @@ describe("transcribe", () => {
     await expect(transcribe(new Blob(["silent video"]), "video/webm", "near-silent.webm")).resolves.toEqual({
       text: "",
       segments: [],
+      segmentsEs: [],
     });
   });
 
@@ -177,7 +191,68 @@ describe("transcribe", () => {
         { start: 0, end: 1, text: "Hello." },
         { start: 3, end: 3, text: "Bye." },
       ],
+      segmentsEs: [],
     });
+  });
+
+  it("keeps English-only captions when Gemini's Spanish is missing or malformed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    generateContent.mockResolvedValueOnce(answer([{ start: 0, end: 1, text: "Hello." }]));
+    generateContent.mockResolvedValueOnce(answer([{ start: 0, end: 1, text: "Hello." }], [{ start: "0", end: 1, text: "Hola." }]));
+
+    for (let i = 0; i < 2; i++) {
+      await expect(transcribe(new Blob(["video"]), "video/mp4")).resolves.toEqual({
+        text: "Hello.",
+        segments: [{ start: 0, end: 1, text: "Hello." }],
+        segmentsEs: [],
+      });
+    }
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the Spanish only when it has as many segments as the original", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const en = [
+      { start: 0, end: 1, text: "Hello." },
+      { start: 1, end: 2, text: "Bye." },
+    ];
+    generateContent.mockResolvedValueOnce(answer(en, [{ start: 0, end: 1, text: "Hola." }]));
+    generateContent.mockResolvedValueOnce(
+      answer(en, [
+        { start: 0, end: 1, text: "Hola." },
+        { start: 1, end: 2, text: "Adiós." },
+        { start: 2, end: 3, text: "Extra." },
+      ]),
+    );
+    generateContent.mockResolvedValueOnce(
+      answer(en, [
+        { start: 0, end: 1, text: "Hola." },
+        { start: 1, end: 2, text: "Adiós." },
+      ]),
+    );
+
+    for (const expected of [[], [], ["Hola.", "Adiós."]]) {
+      const result = await transcribe(new Blob(["video"]), "video/mp4");
+      expect(result.segments).toEqual(en);
+      expect(result.segmentsEs.map((segment) => segment.text)).toEqual(expected);
+    }
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("drops Spanish Gemini made up for a clip with no English speech", async () => {
+    generateContent.mockResolvedValue(answer([], [{ start: 0, end: 1, text: "Hola." }]));
+
+    await expect(transcribe(new Blob(["video"]), "video/mp4")).resolves.toEqual({ text: "", segments: [], segmentsEs: [] });
+  });
+
+  it("asks for the Spanish in the same single call", async () => {
+    generateContent.mockResolvedValue(answer([{ start: 0, end: 1, text: "Hello." }], [{ start: 0, end: 1, text: "Hola." }]));
+
+    await transcribe(new Blob(["video"]), "video/mp4");
+
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(TRANSCRIPT_SCHEMA.required).toEqual(["segments", "segmentsEs"]);
+    expect((request().config as unknown as { systemInstruction: string }).systemInstruction).toContain("segmentsEs");
   });
 
   it("rejects malformed segments as bad_output", async () => {

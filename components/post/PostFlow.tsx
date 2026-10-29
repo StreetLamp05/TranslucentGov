@@ -7,10 +7,12 @@ import LocationPicker from "@/components/map/LocationPicker";
 import NearbyCheck from "@/components/post/NearbyCheck";
 import { ApiError, mutate, query } from "@/lib/data/api";
 import { LIVE_LIST_MS, useLive } from "@/lib/data/useLive";
+import { useT, type TFunction } from "@/lib/i18n/I18nProvider";
+import type { MessageKey } from "@/lib/i18n/dictionary";
 import { ACTIVE_CITY } from "@/server/lib/city";
 import type { NearbySuggestion } from "@/server/nearby";
 import { MAX_CLIP_BYTES } from "@/server/lib/clipLimit";
-import { CLIP_TOO_BIG, MAX_DESCRIPTION_LENGTH } from "@/server/lib/postLimits";
+import { MAX_DESCRIPTION_LENGTH } from "@/server/lib/postLimits";
 import type { LatLng } from "@/lib/demo";
 import type { RecordedClip } from "@/lib/hooks/useClipRecorder";
 import { useCurrentLocation, type LocationState } from "@/lib/hooks/useCurrentLocation";
@@ -27,13 +29,12 @@ type Draft =
   | { kind: "photos"; photos: Blob[]; photoUrls: string[]; point: LatLng | null };
 type Mode = Draft["kind"];
 
-const SUBMIT_ERROR = "We couldn't send your post. Check your connection and try again.";
-const HINTS = {
-  video: "Film the problem for up to 20 seconds. Say what's wrong if you like. Posts use your current location unless you choose a pin first.",
-  photos: "Up to 10 photos. Posts use your current location unless you choose a pin first.",
-};
+// An error line is either one of our own messages (translated when shown) or text the server sent.
+type UiError = { key: MessageKey } | { text: string };
+const errorText = (error: UiError, t: TFunction) => ("key" in error ? t(error.key) : error.text);
 
 export default function PostFlow() {
+  const t = useT();
   const router = useRouter();
   const location = useCurrentLocation();
   const residentToken = useResidentToken();
@@ -51,7 +52,7 @@ export default function PostFlow() {
   const [continueToCapture, setContinueToCapture] = useState(false);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   const [reportId, setReportId] = useState<string | null>(null);
   const [now] = useState(() => Date.now());
 
@@ -107,7 +108,7 @@ export default function PostFlow() {
     // Uploads over 25 MB are converted first (convertClip), so this is a backstop: it fails fast
     // instead of after a long upload.
     if (draft.kind === "video" && draft.clip.blob.size > MAX_CLIP_BYTES) {
-      setError(CLIP_TOO_BIG);
+      setError({ key: "post.clipTooBig" });
       return;
     }
     setSubmitting(true);
@@ -129,7 +130,7 @@ export default function PostFlow() {
       }
       setReportId(id);
     } catch (err) {
-      setError(err instanceof ApiError && typeof err.data === "string" ? err.data : SUBMIT_ERROR);
+      setError(err instanceof ApiError && typeof err.data === "string" ? { text: err.data } : { key: "post.submitError" });
     } finally {
       setSubmitting(false);
     }
@@ -167,8 +168,8 @@ export default function PostFlow() {
     if (!residentToken || nearbyReports === undefined) {
       return (
         <main className="flex flex-col gap-4 p-6" aria-busy="true">
-          <h1 className="text-2xl font-extrabold">Post a problem</h1>
-          <p className="text-[#68756F]">Checking for nearby reports…</p>
+          <h1 className="text-2xl font-extrabold">{t("post.title")}</h1>
+          <p className="text-[#68756F]">{t("post.checkingNearby")}</p>
         </main>
       );
     }
@@ -185,7 +186,7 @@ export default function PostFlow() {
       <CameraCapture
         modes={["video", "photos"]}
         initialMode={mode}
-        hints={HINTS}
+        hints={{ video: t("post.hint.video"), photos: t("post.hint.photos") }}
         onVideo={captured}
         onPhotos={picked}
         onClose={() => router.push("/")}
@@ -195,7 +196,7 @@ export default function PostFlow() {
 
   return (
     <main className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl font-extrabold">Check your post</h1>
+      <h1 className="text-2xl font-extrabold">{t("post.review.title")}</h1>
       {draft.kind === "video" ? (
         <video
           src={draft.clipUrl}
@@ -213,7 +214,7 @@ export default function PostFlow() {
             <img
               key={url}
               src={url}
-              alt={`Photo ${i + 1} of ${draft.photoUrls.length}`}
+              alt={t("post.review.photoAlt", { n: i + 1, total: draft.photoUrls.length })}
               className="h-full w-full shrink-0 snap-center object-contain"
             />
           ))}
@@ -221,7 +222,7 @@ export default function PostFlow() {
       )}
       <label className="flex flex-col gap-1">
         <span className="font-semibold">
-          Description <span className="font-normal text-[#68756F]">(optional)</span>
+          {t("post.review.description")} <span className="font-normal text-[#68756F]">{t("post.review.optional")}</span>
         </span>
         <textarea
           value={description}
@@ -229,7 +230,7 @@ export default function PostFlow() {
           maxLength={MAX_DESCRIPTION_LENGTH}
           rows={3}
           disabled={submitting}
-          placeholder="What's wrong, and how long has it been like this?"
+          placeholder={t("post.review.placeholder")}
           aria-describedby="description-count"
           className="rounded-xl border border-[#D8DDD2] bg-[#FFFEFA] p-3 focus-visible:outline-[#173F35]"
         />
@@ -239,7 +240,7 @@ export default function PostFlow() {
       </label>
       {error && (
         <p role="alert" className="text-[#8A1C1C]">
-          {error}
+          {errorText(error, t)}
         </p>
       )}
       <div className="flex gap-3">
@@ -248,14 +249,14 @@ export default function PostFlow() {
           disabled={submitting}
           className="flex-1 rounded-lg border px-4 py-3 font-semibold disabled:opacity-40"
         >
-          {draft.kind === "video" ? "Record again" : "Pick again"}
+          {draft.kind === "video" ? t("post.review.recordAgain") : t("post.review.pickAgain")}
         </button>
         <button
           onClick={submit}
           disabled={submitting || !point}
           className="flex-1 rounded-xl bg-[#173F35] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#245446] disabled:opacity-40"
         >
-          {submitting ? "Sending…" : "Submit"}
+          {submitting ? t("post.review.sending") : t("post.review.submit")}
         </button>
       </div>
     </main>
@@ -272,34 +273,36 @@ function LocationGate({
   onUseCurrent: () => void;
   onChooseMap: () => void;
 }) {
+  const t = useT();
   return (
     <main className="flex flex-col gap-4 p-6">
-      <h1 className="text-2xl font-extrabold">Post a problem</h1>
+      <h1 className="text-2xl font-extrabold">{t("post.title")}</h1>
       {location.status === "ready" ? (
         <>
           <p className="text-sm text-[#68756F]">
-            Using your {location.simulated ? "simulated demo location" : "current location"}:{" "}
-            {location.point.lat.toFixed(5)}, {location.point.lng.toFixed(5)}
+            {t(location.simulated ? "post.location.usingSimulated" : "post.location.usingCurrent", {
+              coords: `${location.point.lat.toFixed(5)}, ${location.point.lng.toFixed(5)}`,
+            })}
           </p>
           <button
             type="button"
             onClick={onUseCurrent}
             className="rounded-xl bg-[#173F35] px-4 py-3 font-semibold text-white transition-colors hover:bg-[#245446]"
           >
-            Use this location
+            {t("post.location.use")}
           </button>
         </>
       ) : (
         <div role="status" className="rounded-2xl border border-[#E7E6DE] bg-[#FFFEFA] p-4 text-sm text-[#68756F]">
           {location.status === "loading"
-            ? "Finding your location… You can also choose a pin on the map."
-            : `Can't use GPS (${location.status === "denied" ? "permission denied" : "location unavailable"}). Choose a pin on the map instead.`}
+            ? t("post.location.finding")
+            : t(location.status === "denied" ? "post.location.gpsDenied" : "post.location.gpsUnavailable")}
           <button
             type="button"
             onClick={location.refresh}
             className="mt-3 block rounded-lg border px-4 py-2 font-semibold"
           >
-            Try GPS again
+            {t("post.location.tryGps")}
           </button>
         </div>
       )}
@@ -308,7 +311,7 @@ function LocationGate({
         onClick={onChooseMap}
         className="rounded-xl border border-[#BFC9B7] bg-[#FFFEFA] px-4 py-3 font-semibold text-[#245446] transition-colors hover:bg-[#F1F3E9]"
       >
-        Choose location on map
+        {t("post.location.chooseMap")}
       </button>
     </main>
   );

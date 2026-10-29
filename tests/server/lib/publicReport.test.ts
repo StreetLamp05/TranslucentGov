@@ -172,5 +172,17 @@ describe("publicReport on Postgres", () => {
     expect(own).not.toHaveProperty("transcript");
     expect(own).not.toHaveProperty("description");
     expect(own).not.toHaveProperty("segments");
+    expect(own).not.toHaveProperty("segmentsEs");
+  });
+
+  it("returns segmentsEs wherever it returns segments, and never for a muted report", async () => {
+    const segments = [{ start: 0, end: 3, text: "This pothole has been here since June." }];
+    const segmentsEs = [{ start: 0, end: 3, text: "Este bache lleva aquí desde junio." }];
+    const open = await publicReport(reportMedia, reportDoc(await insertReport({ segments, segmentsEs })));
+    expect(open.segments).toEqual(segments);
+    expect(open.segmentsEs).toEqual(segmentsEs);
+
+    const muted = await publicReport(reportMedia, reportDoc(await insertReport({ segments, segmentsEs, audioMuted: true })));
+    for (const field of ["transcript", "segments", "segmentsEs"]) expect(muted).not.toHaveProperty(field);
   });
 });

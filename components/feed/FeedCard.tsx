@@ -1,4 +1,5 @@
 import type { PublicReport } from "@/server/lib/publicReport";
+import { useT } from "@/lib/i18n/I18nProvider";
 import CardActions from "./CardActions";
 import CardOverlay from "./CardOverlay";
 import CardRail from "./CardRail";
@@ -33,13 +34,14 @@ type Props = FeedSlotProps & { index: number };
 // One full-screen, snap-aligned card (§5.1.1). Layout after spec/UI_mockups; the slots own
 // everything on top of the media.
 export default function FeedCard({ index, ...slot }: Props) {
+  const t = useT();
   const { report, near } = slot;
   const poster = report.frameUrls[0];
   return (
     <article
       data-index={index}
       data-report-id={report._id}
-      aria-label={report.title ?? "Report"}
+      aria-label={report.title ?? t("feed.reportFallback")}
       className="relative h-full w-full snap-start snap-always overflow-hidden bg-black"
     >
       {near && poster && (

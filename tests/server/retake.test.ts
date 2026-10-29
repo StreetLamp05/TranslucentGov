@@ -21,6 +21,7 @@ async function held(fields: Partial<typeof import("@/server/db/schema").reports.
     title: "Deep pothole",
     transcript: "Old narration.",
     segments: [{ start: 0, end: 1, text: "Old narration." }],
+    segmentsEs: [{ start: 0, end: 1, text: "Narración anterior." }],
     status: "held",
     verdict: "retake",
     reason: "A face is visible.",
@@ -52,7 +53,7 @@ describe("POST /api/retake (retakeReport)", () => {
 
     const report = await reportRow(old.id);
     expect(report).toMatchObject({ status: "pending", clipStorageId: media.clipStorageId, frameStorageIds: media.frameStorageIds });
-    for (const field of ["verdict", "reason", "category", "owner", "agency", "title", "transcript", "segments", "screeningError"] as const) {
+    for (const field of ["verdict", "reason", "category", "owner", "agency", "title", "transcript", "segments", "segmentsEs", "screeningError"] as const) {
       expect(report[field]).toBeNull();
     }
     expect(report.audioMuted).toBe(false);
