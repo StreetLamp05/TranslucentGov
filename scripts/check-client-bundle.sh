@@ -13,8 +13,8 @@ cd "$(dirname "$0")/.."
 
 ENV_FILE=".env.local"
 BUNDLE=".next"
-# Server keys (Convex env or Vercel build only). CLAUDE_MODEL is public, so it isn't listed.
-KEYS=(ANTHROPIC_API_KEY GROQ_API_KEY GOOGLE_GEOCODING_KEY ADMIN_PASSCODE CONVEX_DEPLOY_KEY)
+# Server keys (Convex env or Vercel build only). GEMINI_MODEL is public, so it isn't listed.
+KEYS=(GEMINI_API_KEY GROQ_API_KEY GOOGLE_GEOCODING_KEY ADMIN_PASSCODE CONVEX_DEPLOY_KEY)
 
 if [ ! -d "$BUNDLE" ]; then
   echo "error: $BUNDLE not found. Run npm run build first." >&2

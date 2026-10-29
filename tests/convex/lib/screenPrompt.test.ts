@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
-import { ClaudeError } from "../../../convex/lib/claude";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { GeminiError } from "../../../convex/lib/gemini";
 import { CATEGORIES } from "../../../convex/lib/routing";
 import {
   clampTitle,
@@ -12,14 +12,14 @@ import {
 } from "../../../convex/lib/screenPrompt";
 import { verdictValidator } from "../../../convex/schema";
 
-const { create } = vi.hoisted(() => ({ create: vi.fn() }));
+const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@anthropic-ai/sdk")>();
-  class FakeAnthropic {
-    beta = { messages: { create } };
+vi.mock("@google/genai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@google/genai")>();
+  class FakeGoogleGenAI {
+    models = { generateContent };
   }
-  return { ...actual, default: FakeAnthropic };
+  return { ...actual, GoogleGenAI: FakeGoogleGenAI };
 });
 
 const IMAGES = [
@@ -28,24 +28,28 @@ const IMAGES = [
 ];
 
 function answer(result: object) {
-  create.mockResolvedValue({ stop_reason: "end_turn", stop_details: null, content: [{ type: "text", text: JSON.stringify(result) }] });
+  generateContent.mockResolvedValue({ candidates: [{ finishReason: "STOP" }], text: JSON.stringify(result) });
 }
 
-beforeEach(() => create.mockReset());
+beforeEach(() => {
+  generateContent.mockReset();
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
+});
+afterEach(() => vi.unstubAllEnvs());
 
 describe("screenPost", () => {
-  test("sends the frames as base64 image blocks, then the untrusted text in tags", async () => {
+  test("sends the frames as inline base64 parts, then the untrusted text in tags", async () => {
     answer({ verdict: "pass", reason: "Looks good.", category: "pothole", title: "Deep pothole in the right lane" });
     const result = await screenPost({ images: IMAGES, transcript: "it's been here since June", street: "Floyd Rd" });
 
     expect(result).toEqual({ verdict: "pass", reason: "Looks good.", category: "pothole", title: "Deep pothole in the right lane" });
-    const params = create.mock.calls[0][0];
-    expect(params.system).toBe(SCREEN_SYSTEM);
-    expect(params.output_config.format).toEqual({ type: "json_schema", schema: SCREEN_SCHEMA });
-    const [first, second, text] = params.messages[0].content;
-    expect(first).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: "AAAA" } });
-    expect(second).toEqual({ type: "image", source: { type: "base64", media_type: "image/png", data: "BBBB" } });
-    expect(text.type).toBe("text");
+    const params = generateContent.mock.calls[0][0];
+    expect(params.config.systemInstruction).toBe(SCREEN_SYSTEM);
+    expect(params.config.responseSchema).toBe(SCREEN_SCHEMA);
+    const [first, second, text] = params.contents[0].parts;
+    expect(first).toEqual({ inlineData: { mimeType: "image/jpeg", data: "AAAA" } });
+    expect(second).toEqual({ inlineData: { mimeType: "image/png", data: "BBBB" } });
+    expect(text).toEqual({ text: expect.any(String) });
     expect(text.text).toContain("<street>Floyd Rd</street>");
     expect(text.text).toContain("<transcript>it's been here since June</transcript>");
     expect(text.text).toContain("<description>(none)</description>");
@@ -59,7 +63,7 @@ describe("screenPost", () => {
   ])("the poster can't close the data tag early: %j", async (description) => {
     answer({ verdict: "retake", reason: "A plate is readable.", category: "pothole", title: "Pothole" });
     await screenPost({ images: IMAGES, description });
-    const text: string = create.mock.calls[0][0].messages[0].content.at(-1).text;
+    const text: string = generateContent.mock.calls[0][0].contents[0].parts.at(-1).text;
     const inner = text.match(/<description>([\s\S]*)<\/description>/)![1];
     expect(inner).not.toMatch(/[<>]/);
     expect(text.match(/<\/description>/g)).toHaveLength(1);
@@ -69,14 +73,16 @@ describe("screenPost", () => {
 
   test("needs at least one image", async () => {
     await expect(screenPost({ images: [] })).rejects.toThrow("at least one image");
-    expect(create).not.toHaveBeenCalled();
+    expect(generateContent).not.toHaveBeenCalled();
   });
 });
 
 describe("the prompt and schema", () => {
-  test("the schema is strict and enumerates the §4.2.1 verdicts and §2.1.2 categories", () => {
-    expect(SCREEN_SCHEMA.additionalProperties).toBe(false);
-    expect(SCREEN_SCHEMA.required.sort()).toEqual(["category", "reason", "title", "verdict"]);
+  test("the schema requires every field and enumerates the §4.2.1 verdicts and §2.1.2 categories", () => {
+    const fields = Object.keys(SCREEN_SCHEMA.properties).sort();
+    expect(fields).toEqual(["category", "reason", "title", "verdict"]);
+    expect([...SCREEN_SCHEMA.required].sort()).toEqual(fields);
+    expect([...SCREEN_SCHEMA.propertyOrdering].sort()).toEqual(fields);
     expect(SCREEN_SCHEMA.properties.verdict.enum).toEqual([...VERDICTS]);
     expect(SCREEN_SCHEMA.properties.category.enum).toEqual([...CATEGORIES]);
   });
@@ -114,7 +120,7 @@ describe("parseScreenResult", () => {
   ])(
     "rejects malformed output %j",
     (raw) => {
-      expect(() => parseScreenResult(raw)).toThrow(ClaudeError);
+      expect(() => parseScreenResult(raw)).toThrow(GeminiError);
     },
   );
 

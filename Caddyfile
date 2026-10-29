@@ -1,0 +1,21 @@
+# HTTPS for the compose stack (§1.1.1). Locally DOMAIN is localhost and TLS is `internal`
+# (Caddy's own CA). On a server set DOMAIN to the real domain and TLS to an email address,
+# and Caddy gets a Let's Encrypt certificate for it.
+{$DOMAIN:localhost} {
+	tls {$TLS:internal}
+
+	# Presigned upload and playback URLs (server/storage.ts) go straight to MinIO. Caddy keeps
+	# the Host header, which the URL signature covers.
+	handle /{$S3_BUCKET:govtok}/* {
+		# Media never runs as a page on this origin. (`>` replaces MinIO's own value.)
+		header {
+			>X-Content-Type-Options nosniff
+			>Content-Security-Policy "sandbox"
+		}
+		reverse_proxy minio:9000
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
+}

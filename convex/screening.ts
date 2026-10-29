@@ -4,11 +4,11 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, type ActionCtx } from "./_generated/server";
-import { blobToImage, ClaudeError } from "./lib/claude";
+import { blobToImage, GeminiError } from "./lib/gemini";
 import { screenPost } from "./lib/screenPrompt";
 import { transcribe } from "./lib/transcribe";
 
-// Wait before the retry when neither Claude nor Groq sent `retry-after`.
+// Wait before the retry when neither Gemini nor Groq sent a retry delay.
 export const RETRY_DELAY_MS = 1000;
 const GEOCODE_TIMEOUT_MS = 5000;
 
@@ -53,16 +53,16 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
   }
 }
 
-// Claude's errors carry `retryAfterMs`. Groq's (US11) only say "Retry after N seconds." in
+// Gemini's errors carry `retryAfterMs`. Groq's (US11) only say "Retry after N seconds." in
 // the message.
 function retryDelayMs(error: unknown): number {
-  if (error instanceof ClaudeError) return error.retryAfterMs ?? RETRY_DELAY_MS;
+  if (error instanceof GeminiError) return error.retryAfterMs ?? RETRY_DELAY_MS;
   const seconds = error instanceof Error ? /Retry after ([\d.]+) seconds/.exec(error.message)?.[1] : undefined;
   return seconds ? Number(seconds) * 1000 : RETRY_DELAY_MS;
 }
 
 // Signature from US5; mutations live in screeningDb.ts, because a "use node" file can only
-// contain actions. Transcribe (videos), screen with Claude, then apply the verdict (§4.2.1).
+// contain actions. Transcribe (videos), screen with Gemini, then apply the verdict (§4.2.1).
 export const screenReport = internalAction({
   // `attempt` counts tries: omitted or 0 is the first, and a retry reschedules with attempt + 1 (§4.2.1).
   args: { reportId: v.id("reports"), attempt: v.optional(v.number()) },

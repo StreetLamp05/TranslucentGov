@@ -1,4 +1,4 @@
-import { RateLimitError } from "@anthropic-ai/sdk";
+import { ApiError } from "@google/genai";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { internal } from "../../convex/_generated/api";
@@ -7,28 +7,30 @@ import { FAILED_REASON, RETRY_DELAY_MS } from "../../convex/fixVerification";
 import schema from "../../convex/schema";
 import { modules } from "./setup";
 
-const { create } = vi.hoisted(() => ({ create: vi.fn() }));
+const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
 
-vi.mock("@anthropic-ai/sdk", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@anthropic-ai/sdk")>();
-  class FakeAnthropic {
-    beta = { messages: { create } };
+vi.mock("@google/genai", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@google/genai")>();
+  class FakeGoogleGenAI {
+    models = { generateContent };
   }
-  return { ...actual, default: FakeAnthropic };
+  return { ...actual, GoogleGenAI: FakeGoogleGenAI };
 });
 
 const NOW = Date.UTC(2026, 9, 25, 12);
 
 function answer(verdict: string, reason: string) {
-  return { stop_reason: "end_turn", stop_details: null, content: [{ type: "text", text: JSON.stringify({ verdict, reason }) }] };
+  return { candidates: [{ finishReason: "STOP" }], text: JSON.stringify({ verdict, reason }) };
 }
 
-function rateLimited(retryAfter: string) {
-  return new RateLimitError(429, { type: "error" }, "rate limited", new Headers({ "retry-after": retryAfter }));
+function rateLimited(retryDelay: string) {
+  const details = [{ "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay }];
+  return new ApiError({ message: JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", details } }), status: 429 });
 }
 
 beforeEach(() => {
-  create.mockReset();
+  generateContent.mockReset();
+  vi.stubEnv("GEMINI_API_KEY", "test-key");
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -36,6 +38,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 const image = (bytes: string) => new Blob([bytes], { type: "image/jpeg" });
@@ -101,7 +104,7 @@ const toBase64 = (s: string) => btoa(s);
 
 describe("verifyFix verdicts", () => {
   test("verified closes the report with the fix fields and names the fixer's org", async () => {
-    create.mockResolvedValue(answer("verified", "The pothole is patched."));
+    generateContent.mockResolvedValue(answer("verified", "The pothole is patched."));
     const { verify, read, fixerId, clipStorageId } = await setup();
     await verify();
 
@@ -120,7 +123,7 @@ describe("verifyFix verdicts", () => {
   });
 
   test("a neighbor's verified fix has no org", async () => {
-    create.mockResolvedValue(answer("verified", "Repaired."));
+    generateContent.mockResolvedValue(answer("verified", "Repaired."));
     const { verify, read, neighborId } = await setup({ byKind: "resident" });
     await verify();
 
@@ -133,7 +136,7 @@ describe("verifyFix verdicts", () => {
     ["not_fixed", "The pothole is still there."],
     ["retake", "A worker's face is visible. Film again without people in frame."],
   ])("%s stores the reason on the attempt and leaves the report open", async (verdict, reason) => {
-    create.mockResolvedValue(answer(verdict, reason));
+    generateContent.mockResolvedValue(answer(verdict, reason));
     const { verify, read } = await setup();
     await verify();
 
@@ -145,12 +148,12 @@ describe("verifyFix verdicts", () => {
   });
 
   test("sends the original's frames as BEFORE and the fix frames as AFTER, in base64", async () => {
-    create.mockResolvedValue(answer("verified", "Fixed."));
+    generateContent.mockResolvedValue(answer("verified", "Fixed."));
     const { verify } = await setup();
     await verify();
 
-    const content = create.mock.calls[0][0].messages[0].content;
-    expect(content.map((b: { type: string; text?: string; source?: { data: string } }) => b.text ?? b.source?.data)).toEqual([
+    const content = generateContent.mock.calls[0][0].contents[0].parts;
+    expect(content.map((b: { text?: string; inlineData?: { data: string } }) => b.text ?? b.inlineData?.data)).toEqual([
       "BEFORE: the original report, 2 frames from its video.",
       toBase64("before-1"),
       toBase64("before-2"),
@@ -161,19 +164,19 @@ describe("verifyFix verdicts", () => {
   });
 
   test("labels a slideshow's originals as photos", async () => {
-    create.mockResolvedValue(answer("verified", "Fixed."));
+    generateContent.mockResolvedValue(answer("verified", "Fixed."));
     const { verify } = await setup({ mediaType: "photos" });
     await verify();
-    expect(create.mock.calls[0][0].messages[0].content[0].text).toBe("BEFORE: the original report, 2 photos.");
+    expect(generateContent.mock.calls[0][0].contents[0].parts[0].text).toBe("BEFORE: the original report, 2 photos.");
   });
 });
 
 describe("verifyFix guards", () => {
-  test.each(["fixed", "held", "pending"] as const)("a report that's %s supersedes the attempt without calling Claude", async (status) => {
+  test.each(["fixed", "held", "pending"] as const)("a report that's %s supersedes the attempt without calling Gemini", async (status) => {
     const { verify, read } = await setup({ reportStatus: status });
     await verify();
 
-    expect(create).not.toHaveBeenCalled();
+    expect(generateContent).not.toHaveBeenCalled();
     const { report, attempt } = await read();
     expect(attempt.status).toBe("superseded");
     expect(report.status).toBe(status);
@@ -183,11 +186,11 @@ describe("verifyFix guards", () => {
     const { verify, read } = await setup({ attemptStatus: "not_fixed" });
     await verify();
 
-    expect(create).not.toHaveBeenCalled();
+    expect(generateContent).not.toHaveBeenCalled();
     expect((await read()).attempt.status).toBe("not_fixed");
   });
 
-  test("a report closed by another attempt while Claude was checking supersedes this one", async () => {
+  test("a report closed by another attempt while Gemini was checking supersedes this one", async () => {
     const { t, attemptId, reportId, read } = await setup();
     await t.run((ctx) => ctx.db.patch(reportId, { status: "fixed", fixedAt: 5 }));
     await t.mutation(internal.fixVerificationDb.applyFixVerdict, { attemptId, verdict: "verified", reason: "Fixed." });
@@ -200,8 +203,8 @@ describe("verifyFix guards", () => {
 });
 
 describe("verifyFix retry", () => {
-  test("an error retries once after retry-after, and the retry can succeed", async () => {
-    create.mockRejectedValueOnce(rateLimited("3")).mockResolvedValueOnce(answer("verified", "Fixed."));
+  test("an error retries once after the retry delay, and the retry can succeed", async () => {
+    generateContent.mockRejectedValueOnce(rateLimited("3s")).mockResolvedValueOnce(answer("verified", "Fixed."));
     const { t, verify, read, scheduled, attemptId } = await setup();
     await verify();
 
@@ -211,24 +214,24 @@ describe("verifyFix retry", () => {
     expect((await read()).attempt.status).toBe("checking");
 
     await t.finishAllScheduledFunctions(vi.runAllTimers);
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(generateContent).toHaveBeenCalledTimes(2);
     expect((await read()).attempt.status).toBe("verified");
   });
 
-  test("an error without retry-after waits the default delay", async () => {
-    create.mockRejectedValueOnce(new Error("socket hang up"));
+  test("an error without a retry delay waits the default delay", async () => {
+    generateContent.mockRejectedValueOnce(new Error("socket hang up"));
     const { verify, scheduled } = await setup();
     await verify();
     expect((await scheduled())[0].scheduledTime).toBe(NOW + RETRY_DELAY_MS);
   });
 
   test("a second error marks the attempt failed with a reason for the person filming", async () => {
-    create.mockRejectedValue(rateLimited("1"));
+    generateContent.mockRejectedValue(rateLimited("1s"));
     const { t, verify, read, scheduled } = await setup();
     await verify();
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-    expect(create).toHaveBeenCalledTimes(2);
+    expect(generateContent).toHaveBeenCalledTimes(2);
     expect((await scheduled()).map((s) => s.state.kind)).toEqual(["success"]);
     const { report, attempt } = await read();
     expect(attempt).toMatchObject({ status: "failed", reason: FAILED_REASON });
@@ -246,7 +249,7 @@ describe("verifyFix retry", () => {
   });
 
   test("unusable output counts as an error", async () => {
-    create.mockResolvedValue(answer("maybe", "Unsure."));
+    generateContent.mockResolvedValue(answer("maybe", "Unsure."));
     const { t, verify, read } = await setup();
     await verify();
     await t.finishAllScheduledFunctions(vi.runAllTimers);
@@ -262,7 +265,7 @@ describe("verifyFix retry", () => {
     await verify();
     await t.finishAllScheduledFunctions(vi.runAllTimers);
 
-    expect(create).not.toHaveBeenCalled();
+    expect(generateContent).not.toHaveBeenCalled();
     expect((await read()).attempt.status).toBe("failed");
   });
 });

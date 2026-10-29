@@ -1,6 +1,6 @@
 // Posts a fixture through files.generateUploadUrl + posts.createReport on this worktree's
 // local Convex deployment, then waits for screening (US13) to move it out of `pending` and
-// prints the result and the elapsed time. Calls the real Groq, Google and Anthropic APIs
+// prints the result and the elapsed time. Calls the real Groq, Google Maps and Gemini APIs
 // with the keys set on that deployment (scripts/convex-env.sh).
 //
 // Usage (needs `npx convex dev` running):

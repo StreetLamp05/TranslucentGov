@@ -39,7 +39,7 @@ test("passes a clean build", () => {
 
   expect(exit).toBe(0);
   expect(out).toMatch(/^ok {5}GROQ_API_KEY$/m);
-  expect(out).toMatch(/^ok {5}ANTHROPIC_API_KEY \(name only/m);
+  expect(out).toMatch(/^ok {5}GEMINI_API_KEY \(name only/m);
 });
 
 test("fails on a key value in the client chunks", () => {
@@ -62,16 +62,16 @@ test("fails on a key value in prerendered HTML", () => {
 });
 
 test("fails on a key name, even with no value to compare", () => {
-  plant(".next/static/chunks/env.js", "process.env.ANTHROPIC_API_KEY");
+  plant(".next/static/chunks/env.js", "process.env.GEMINI_API_KEY");
 
   const { exit, out } = check();
 
   expect(exit).toBe(1);
-  expect(out).toContain("LEAK   ANTHROPIC_API_KEY (name found");
+  expect(out).toContain("LEAK   GEMINI_API_KEY (name found");
 });
 
 test("ignores the build cache", () => {
-  plant(".next/cache/webpack/x.pack", "hunter22 ANTHROPIC_API_KEY");
+  plant(".next/cache/webpack/x.pack", "hunter22 GEMINI_API_KEY");
 
   expect(check().exit).toBe(0);
 });
