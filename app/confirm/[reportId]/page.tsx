@@ -39,7 +39,7 @@ export default function ConfirmFixPage() {
       <BackLink reportId={report._id} />
       <h1 className="text-2xl font-extrabold">Is it fixed?</h1>
       <p className="text-sm text-[#46505C]">
-        Stand where the original was filmed and record a short clip. Claude compares it with the original.
+        Stand where the original was filmed and record a short clip. We compare it with the original.
       </p>
       <div className="mt-4 flex gap-3">
         {poster && (
